@@ -23,9 +23,35 @@
         </div>
     </header>
 
-    <main>
+    <!-- Login formulář -->
+    <div id="login-container" style="max-width: 400px; margin: 50px auto; padding: 2rem; background: #f8f9fa; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <h2 style="text-align: center; margin-bottom: 2rem; color: #2c3e50;">Přihlášení do administrace</h2>
+        <form id="login-form">
+            <div style="margin-bottom: 1rem;">
+                <label for="username" style="display: block; margin-bottom: 0.5rem; color: #34495e; font-weight: 500;">Uživatelské jméno:</label>
+                <input type="text" id="username" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+            </div>
+            <div style="margin-bottom: 1.5rem;">
+                <label for="password" style="display: block; margin-bottom: 0.5rem; color: #34495e; font-weight: 500;">Heslo:</label>
+                <input type="password" id="password" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+            </div>
+            <button type="submit" style="width: 100%; padding: 0.75rem; background: #3498db; color: white; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; transition: background 0.2s;">
+                Přihlásit se
+            </button>
+        </form>
+        <div id="login-error" style="display: none; margin-top: 1rem; padding: 0.75rem; background: #ffebee; color: #c62828; border-radius: 4px; text-align: center;">
+            Nesprávné přihlašovací údaje.
+        </div>
+    </div>
+
+    <main id="admin-content" style="display: none;">
         <div class="container">
-            <h2 style="margin-bottom: 2rem; color: #2c3e50; font-weight: 300;">Administrace</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h2 style="color: #2c3e50; font-weight: 300;">Administrace</h2>
+                <button onclick="logout()" style="padding: 0.5rem 1rem; background: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Odhlásit se
+                </button>
+            </div>
             
             <div class="admin-form">
                 <h3 style="margin-bottom: 1.5rem; color: #2c3e50; font-weight: 400;">Přidat nový článek</h3>
@@ -160,91 +186,152 @@
     </footer>
 
     <script>
-        // Inicializace Supabase klienta
-        const { createClient } = supabase;
-        const supabaseClient = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
-        
-        // Inicializace databáze třídy
-        window.articleDB.init(supabaseClient);
+        // Přihlašovací údaje (v produkci by měly být bezpečněji uloženy)
+        const ADMIN_CREDENTIALS = {
+            username: 'milos',
+            password: 'vedci2025!'
+        };
 
-        // Inicializace Quill editorů a načtení článků
-        let quill, editQuill;
-        document.addEventListener('DOMContentLoaded', async function() {
-            // Inicializace Quill rich text editoru pro nové články
-            quill = new Quill('#quill-editor', {
-                theme: 'snow',
-                modules: {
-                    toolbar: [
-                        [{ 'header': [1, 2, 3, false] }],
-                        ['bold', 'italic', 'underline'],
-                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                        ['link'],
-                        ['clean']
-                    ]
-                },
-                placeholder: 'Napište obsah článku...'
-            });
+        // Kontrola přihlášení při načtení stránky
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuth();
+            
+            // Event listener pro login formulář
+            document.getElementById('login-form').addEventListener('submit', handleLogin);
+        });
 
-            // Inicializace Quill editoru pro editaci článků
-            editQuill = new Quill('#edit-quill-editor', {
-                theme: 'snow',
-                modules: {
-                    toolbar: [
-                        [{ 'header': [1, 2, 3, false] }],
-                        ['bold', 'italic', 'underline'],
-                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                        ['link'],
-                        ['clean']
-                    ]
-                },
-                placeholder: 'Upravte obsah článku...'
-            });
+        function checkAuth() {
+            const isLoggedIn = sessionStorage.getItem('adminLoggedIn') === 'true';
+            
+            if (isLoggedIn) {
+                showAdminContent();
+            } else {
+                showLoginForm();
+            }
+        }
 
-            // Preview obrázku
-            document.getElementById('article-image').addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                const preview = document.getElementById('image-preview');
-                const img = document.getElementById('preview-img');
+        function handleLogin(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+                sessionStorage.setItem('adminLoggedIn', 'true');
+                showAdminContent();
+            } else {
+                document.getElementById('login-error').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('login-error').style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        function logout() {
+            sessionStorage.removeItem('adminLoggedIn');
+            showLoginForm();
+        }
+
+        function showLoginForm() {
+            document.getElementById('login-container').style.display = 'block';
+            document.getElementById('admin-content').style.display = 'none';
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }
+
+        function showAdminContent() {
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('admin-content').style.display = 'block';
+            initializeAdminContent();
+        }
+
+        // Inicializace admin obsahu
+        function initializeAdminContent() {
+            // Inicializace Supabase klienta
+            const { createClient } = supabase;
+            const supabaseClient = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+            
+            // Inicializace databáze třídy
+            window.articleDB.init(supabaseClient);
+
+            // Inicializace Quill editorů a načtení článků
+            if (!window.quill) {
+                // Inicializace Quill rich text editoru pro nové články
+                window.quill = new Quill('#quill-editor', {
+                    theme: 'snow',
+                    modules: {
+                        toolbar: [
+                            [{ 'header': [1, 2, 3, false] }],
+                            ['bold', 'italic', 'underline'],
+                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                            ['link'],
+                            ['clean']
+                        ]
+                    },
+                    placeholder: 'Napište obsah článku...'
+                });
+
+                // Inicializace Quill editoru pro editaci článků
+                window.editQuill = new Quill('#edit-quill-editor', {
+                    theme: 'snow',
+                    modules: {
+                        toolbar: [
+                            [{ 'header': [1, 2, 3, false] }],
+                            ['bold', 'italic', 'underline'],
+                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                            ['link'],
+                            ['clean']
+                        ]
+                    },
+                    placeholder: 'Upravte obsah článku...'
+                });
+
+                // Preview obrázku
+                document.getElementById('article-image').addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    const preview = document.getElementById('image-preview');
+                    const img = document.getElementById('preview-img');
+                    
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            img.src = e.target.result;
+                            preview.style.display = 'block';
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        preview.style.display = 'none';
+                    }
+                });
                 
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        img.src = e.target.result;
-                        preview.style.display = 'block';
-                    };
-                    reader.readAsDataURL(file);
-                } else {
-                    preview.style.display = 'none';
-                }
-            });
+                // Preview obrázku pro editaci
+                document.getElementById('edit-article-image').addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    const preview = document.getElementById('edit-image-preview');
+                    const img = document.getElementById('edit-preview-img');
+                    
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            img.src = e.target.result;
+                            preview.style.display = 'block';
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        preview.style.display = 'none';
+                    }
+                });
 
-            await loadArticles();
+                // Připojení event listeneru pro formuláře
+                document.getElementById('article-form').addEventListener('submit', handleFormSubmit);
+                document.getElementById('edit-article-form').addEventListener('submit', handleEditFormSubmit);
+            }
+
+            loadArticles();
             
             // Nastavení dnešního data jako výchozí
             document.getElementById('article-date').valueAsDate = new Date();
-            
-            // Preview obrázku pro editaci
-            document.getElementById('edit-article-image').addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                const preview = document.getElementById('edit-image-preview');
-                const img = document.getElementById('edit-preview-img');
-                
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        img.src = e.target.result;
-                        preview.style.display = 'block';
-                    };
-                    reader.readAsDataURL(file);
-                } else {
-                    preview.style.display = 'none';
-                }
-            });
-
-            // Připojení event listeneru pro formuláře
-            document.getElementById('article-form').addEventListener('submit', handleFormSubmit);
-            document.getElementById('edit-article-form').addEventListener('submit', handleEditFormSubmit);
-        });
+        }
 
         // Funkce pro zpracování formuláře
         async function handleFormSubmit(e) {
@@ -258,11 +345,11 @@
                 const formData = new FormData(this);
                 
                 // Získání obsahu z Quill editoru
-                const content = quill.root.innerHTML;
+                const content = window.quill.root.innerHTML;
                 console.log('Obsah z editoru:', content); // Debug zpráva
                 
                 // Validace obsahu - kontrola zda není prázdný
-                const textContent = quill.getText().trim();
+                const textContent = window.quill.getText().trim();
                 if (textContent.length === 0) {
                     alert('Prosím vyplňte obsah článku.');
                     return;
@@ -306,7 +393,7 @@
                 if (result.success) {
                     alert('Článek byl úspěšně publikován!');
                     this.reset();
-                    quill.setContents([]); // Vyčistit editor
+                    window.quill.setContents([]); // Vyčistit editor
                     document.getElementById('image-preview').style.display = 'none';
                     document.getElementById('article-date').valueAsDate = new Date();
                     await loadArticles(); // Obnovit seznam článků
@@ -383,7 +470,7 @@
                 document.getElementById('edit-source-url').value = article.source_url || '';
                 
                 // Nastavení obsahu v Quill editoru
-                editQuill.root.innerHTML = article.content;
+                window.editQuill.root.innerHTML = article.content;
                 
                 // Zobrazení aktuálního obrázku pokud existuje
                 const currentImageEl = document.getElementById('edit-current-image');
@@ -414,7 +501,7 @@
         function cancelEdit() {
             document.getElementById('edit-form-container').style.display = 'none';
             document.getElementById('edit-article-form').reset();
-            editQuill.setContents([]);
+            window.editQuill.setContents([]);
         }
         
         // Zpracování formuláře pro editaci článku
@@ -430,10 +517,10 @@
                 const articleId = formData.get('id');
                 
                 // Získání obsahu z Quill editoru
-                const content = editQuill.root.innerHTML;
+                const content = window.editQuill.root.innerHTML;
                 
                 // Validace obsahu
-                const textContent = editQuill.getText().trim();
+                const textContent = window.editQuill.getText().trim();
                 if (textContent.length === 0) {
                     alert('Prosím vyplňte obsah článku.');
                     return;
