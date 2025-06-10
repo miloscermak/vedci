@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vědci zjistili</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="database.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><a href="index.html" style="text-decoration: none; color: inherit;">Vědci zjistili</a></h1>
+            <nav>
+                <a href="index.html">Domů</a>
+                <a href="archiv.html">Archív</a>
+                <a href="admin.html">Administrace</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <div id="loading" style="text-align: center; padding: 2rem; color: #666;">
+                Načítání článku...
+            </div>
+            <article id="main-article" class="main-article" style="display: none;">
+                <header class="article-header">
+                    <time id="article-date" datetime=""></time>
+                    <h2 id="article-title"></h2>
+                </header>
+                <div id="article-content" class="article-content">
+                </div>
+            </article>
+            <div id="error-message" style="display: none; text-align: center; padding: 2rem; color: #e74c3c;">
+                Nepodařilo se načíst článek. Zkuste to později.
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Vědci zjistili. Každý den něco nového.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Inicializace Supabase klienta
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+        
+        // Inicializace databáze třídy
+        window.articleDB.init(supabaseClient);
+
+        // Načtení článku podle URL parametru nebo nejnovějšího článku
+        document.addEventListener('DOMContentLoaded', async function() {
+            const loadingEl = document.getElementById('loading');
+            const articleEl = document.getElementById('main-article');
+            const errorEl = document.getElementById('error-message');
+
+            try {
+                let article = null;
+                
+                // Kontrola URL parametrů pro konkrétní článek
+                const urlParams = new URLSearchParams(window.location.search);
+                const articleSlug = urlParams.get('clanek');
+                
+                if (articleSlug) {
+                    // Načtení konkrétního článku podle slug
+                    article = await window.articleDB.getArticleBySlug(articleSlug);
+                    
+                    // Aktualizace title stránky
+                    if (article) {
+                        document.title = `${article.title} - Vědci zjistili`;
+                    }
+                } else {
+                    // Načtení nejnovějšího článku
+                    article = await window.articleDB.getLatestArticle();
+                }
+                
+                if (article) {
+                    // Naplnění článku daty z databáze
+                    document.getElementById('article-date').textContent = window.articleDB.formatDate(article.date);
+                    document.getElementById('article-date').setAttribute('datetime', window.articleDB.formatDatetime(article.date));
+                    document.getElementById('article-title').textContent = article.title;
+                    
+                    // Zobrazení obrázku pokud existuje
+                    let contentHTML = '';
+                    if (article.image_url) {
+                        contentHTML += `<img src="${article.image_url}" alt="${article.title}" class="article-image">`;
+                    }
+                    
+                    // Přidání obsahu článku (už je v HTML formátu z Quill editoru)
+                    contentHTML += article.content;
+                    
+                    // Přidání zdroje pokud existuje
+                    if (article.source_url && article.source_title) {
+                        contentHTML += `<div class="article-source">Zdroj: <a href="${article.source_url}" target="_blank" rel="noopener">${article.source_title}</a></div>`;
+                    } else if (article.source_url) {
+                        contentHTML += `<div class="article-source">Zdroj: <a href="${article.source_url}" target="_blank" rel="noopener">${article.source_url}</a></div>`;
+                    }
+                    
+                    document.getElementById('article-content').innerHTML = contentHTML;
+                    
+                    // Zobrazení článku
+                    loadingEl.style.display = 'none';
+                    articleEl.style.display = 'block';
+                } else {
+                    // Žádný článek nenalezen
+                    loadingEl.style.display = 'none';
+                    errorEl.style.display = 'block';
+                    if (articleSlug) {
+                        errorEl.textContent = 'Článek nebyl nalezen.';
+                    } else {
+                        errorEl.textContent = 'Žádné články nejsou k dispozici.';
+                    }
+                }
+            } catch (error) {
+                console.error('Chyba při načítání článku:', error);
+                loadingEl.style.display = 'none';
+                errorEl.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

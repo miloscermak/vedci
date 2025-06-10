@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administrace - Vědci zjistili</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="config.js"></script>
+    <script src="database.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><a href="index.html" style="text-decoration: none; color: inherit;">Vědci zjistili</a></h1>
+            <nav>
+                <a href="index.html">Domů</a>
+                <a href="archiv.html">Archív</a>
+                <a href="admin.html">Administrace</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <h2 style="margin-bottom: 2rem; color: #2c3e50; font-weight: 300;">Administrace</h2>
+            
+            <div class="admin-form">
+                <h3 style="margin-bottom: 1.5rem; color: #2c3e50; font-weight: 400;">Přidat nový článek</h3>
+                
+                <form id="article-form">
+                    <div class="form-group">
+                        <label for="article-date">Datum:</label>
+                        <input type="date" id="article-date" name="date" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="article-title">Nadpis článku:</label>
+                        <input type="text" id="article-title" name="title" placeholder="Zadejte nadpis článku..." required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="article-excerpt">Krátký výtah (pro archív):</label>
+                        <textarea id="article-excerpt" name="excerpt" placeholder="Stručný popis článku pro zobrazení v archívu..." required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="article-image">Obrázek (volitelný):</label>
+                        <input type="file" id="article-image" name="image" accept="image/*">
+                        <div id="image-preview" style="margin-top: 1rem; display: none;">
+                            <img id="preview-img" style="max-width: 300px; max-height: 200px; border-radius: 4px; border: 1px solid #ddd;">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="source-title">Název zdroje (volitelný):</label>
+                        <input type="text" id="source-title" name="source_title" placeholder="např. Nature, MIT News...">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="source-url">Odkaz na zdroj (volitelný):</label>
+                        <input type="url" id="source-url" name="source_url" placeholder="https://...">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="article-content">Obsah článku:</label>
+                        <div id="quill-editor" style="height: 300px;"></div>
+                        <textarea id="article-content" name="content" style="display: none;"></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn">Publikovat článek</button>
+                </form>
+            </div>
+            
+            <!-- Formulář pro editaci článku (skrytý) -->
+            <div id="edit-form-container" class="admin-form" style="margin-top: 2rem; display: none;">
+                <h3 style="margin-bottom: 1.5rem; color: #2c3e50; font-weight: 400;">Editovat článek</h3>
+                
+                <form id="edit-article-form">
+                    <input type="hidden" id="edit-article-id" name="id">
+                    
+                    <div class="form-group">
+                        <label for="edit-article-date">Datum:</label>
+                        <input type="date" id="edit-article-date" name="date" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-article-title">Nadpis článku:</label>
+                        <input type="text" id="edit-article-title" name="title" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-article-excerpt">Krátký výtah (pro archív):</label>
+                        <textarea id="edit-article-excerpt" name="excerpt" required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-article-image">Změnit obrázek (volitelný):</label>
+                        <input type="file" id="edit-article-image" name="image" accept="image/*">
+                        <div id="edit-current-image" style="margin-top: 1rem; display: none;">
+                            <p style="color: #666; font-size: 0.9rem;">Aktuální obrázek:</p>
+                            <img id="edit-current-img" style="max-width: 200px; max-height: 150px; border-radius: 4px; border: 1px solid #ddd;">
+                        </div>
+                        <div id="edit-image-preview" style="margin-top: 1rem; display: none;">
+                            <p style="color: #666; font-size: 0.9rem;">Nový obrázek:</p>
+                            <img id="edit-preview-img" style="max-width: 200px; max-height: 150px; border-radius: 4px; border: 1px solid #ddd;">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-source-title">Název zdroje (volitelný):</label>
+                        <input type="text" id="edit-source-title" name="source_title">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-source-url">Odkaz na zdroj (volitelný):</label>
+                        <input type="url" id="edit-source-url" name="source_url">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-article-content">Obsah článku:</label>
+                        <div id="edit-quill-editor" style="height: 300px;"></div>
+                        <textarea id="edit-article-content" name="content" style="display: none;"></textarea>
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem;">
+                        <button type="submit" class="btn">Uložit změny</button>
+                        <button type="button" class="btn" style="background-color: #95a5a6;" onclick="cancelEdit()">Zrušit</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="admin-form" style="margin-top: 2rem;">
+                <h3 style="margin-bottom: 1.5rem; color: #2c3e50; font-weight: 400;">Správa existujících článků</h3>
+                
+                <div id="loading-articles" style="text-align: center; padding: 1.5rem; color: #666;">
+                    Načítání článků...
+                </div>
+                
+                <div id="articles-list" style="margin-top: 1.5rem; display: none;">
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem;">Aktuálně publikované články:</h4>
+                    <ul id="articles-container" style="list-style: none; padding: 0;">
+                        <!-- Články se načtou dynamicky -->
+                    </ul>
+                </div>
+                
+                <div id="no-articles" style="display: none; text-align: center; padding: 1.5rem; color: #666;">
+                    Žádné články nejsou k dispozici.
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Vědci zjistili. Každý den něco nového.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Inicializace Supabase klienta
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+        
+        // Inicializace databáze třídy
+        window.articleDB.init(supabaseClient);
+
+        // Inicializace Quill editorů a načtení článků
+        let quill, editQuill;
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Inicializace Quill rich text editoru pro nové články
+            quill = new Quill('#quill-editor', {
+                theme: 'snow',
+                modules: {
+                    toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline'],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['link'],
+                        ['clean']
+                    ]
+                },
+                placeholder: 'Napište obsah článku...'
+            });
+
+            // Inicializace Quill editoru pro editaci článků
+            editQuill = new Quill('#edit-quill-editor', {
+                theme: 'snow',
+                modules: {
+                    toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline'],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['link'],
+                        ['clean']
+                    ]
+                },
+                placeholder: 'Upravte obsah článku...'
+            });
+
+            // Preview obrázku
+            document.getElementById('article-image').addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                const preview = document.getElementById('image-preview');
+                const img = document.getElementById('preview-img');
+                
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        img.src = e.target.result;
+                        preview.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    preview.style.display = 'none';
+                }
+            });
+
+            await loadArticles();
+            
+            // Nastavení dnešního data jako výchozí
+            document.getElementById('article-date').valueAsDate = new Date();
+            
+            // Preview obrázku pro editaci
+            document.getElementById('edit-article-image').addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                const preview = document.getElementById('edit-image-preview');
+                const img = document.getElementById('edit-preview-img');
+                
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        img.src = e.target.result;
+                        preview.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    preview.style.display = 'none';
+                }
+            });
+
+            // Připojení event listeneru pro formuláře
+            document.getElementById('article-form').addEventListener('submit', handleFormSubmit);
+            document.getElementById('edit-article-form').addEventListener('submit', handleEditFormSubmit);
+        });
+
+        // Funkce pro zpracování formuláře
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            console.log('Formulář odeslán!'); // Debug zpráva
+            
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            
+            try {
+                const formData = new FormData(this);
+                
+                // Získání obsahu z Quill editoru
+                const content = quill.root.innerHTML;
+                console.log('Obsah z editoru:', content); // Debug zpráva
+                
+                // Validace obsahu - kontrola zda není prázdný
+                const textContent = quill.getText().trim();
+                if (textContent.length === 0) {
+                    alert('Prosím vyplňte obsah článku.');
+                    return;
+                }
+                
+                submitBtn.textContent = 'Publikuji...';
+                submitBtn.disabled = true;
+                
+                const articleData = {
+                    date: formData.get('date'),
+                    title: formData.get('title'),
+                    excerpt: formData.get('excerpt'),
+                    content: content,
+                    source_url: formData.get('source_url'),
+                    source_title: formData.get('source_title')
+                };
+                
+                console.log('Data článku:', articleData); // Debug zpráva
+                
+                // Nahrání obrázku pokud byl vybrán
+                const imageFile = formData.get('image');
+                if (imageFile && imageFile.size > 0) {
+                    console.log('Nahrávám obrázek:', imageFile.name);
+                    submitBtn.textContent = 'Nahrávám obrázek...';
+                    const uploadResult = await window.articleDB.uploadImage(imageFile);
+                    
+                    if (uploadResult.success) {
+                        articleData.image_url = uploadResult.url;
+                        console.log('Obrázek nahrán:', uploadResult.url);
+                    } else {
+                        console.error('Chyba nahrávání:', uploadResult.error);
+                        alert('Chyba při nahrávání obrázku: ' + uploadResult.error);
+                        return;
+                    }
+                }
+                
+                submitBtn.textContent = 'Ukládám článek...';
+                const result = await window.articleDB.addArticle(articleData);
+                console.log('Výsledek uložení:', result);
+                
+                if (result.success) {
+                    alert('Článek byl úspěšně publikován!');
+                    this.reset();
+                    quill.setContents([]); // Vyčistit editor
+                    document.getElementById('image-preview').style.display = 'none';
+                    document.getElementById('article-date').valueAsDate = new Date();
+                    await loadArticles(); // Obnovit seznam článků
+                } else {
+                    alert('Chyba při publikování článku: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Chyba při publikování článku:', error);
+                alert('Došlo k chybě při publikování článku.');
+            } finally {
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
+        }
+
+        // Funkce pro načtení článků
+        async function loadArticles() {
+            const loadingEl = document.getElementById('loading-articles');
+            const articlesListEl = document.getElementById('articles-list');
+            const noArticlesEl = document.getElementById('no-articles');
+            const containerEl = document.getElementById('articles-container');
+
+            try {
+                const articles = await window.articleDB.getAllArticles();
+                
+                loadingEl.style.display = 'none';
+                
+                if (articles && articles.length > 0) {
+                    containerEl.innerHTML = articles.map(article => `
+                        <li style="padding: 0.5rem 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>${window.articleDB.formatDate(article.date)}:</strong> 
+                                ${article.title.length > 60 ? article.title.substring(0, 60) + '...' : article.title}
+                            </div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;" onclick="editArticle(${article.id})">
+                                    Editovat
+                                </button>
+                                <button class="btn" style="padding: 0.3rem 0.8rem; font-size: 0.8rem; background-color: #e74c3c;" onclick="deleteArticle(${article.id}, '${article.title.replace(/'/g, "\\'")}')" title="Smazat článek">
+                                    Smazat
+                                </button>
+                            </div>
+                        </li>
+                    `).join('');
+                    articlesListEl.style.display = 'block';
+                } else {
+                    noArticlesEl.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Chyba při načítání článků:', error);
+                loadingEl.style.display = 'none';
+                noArticlesEl.style.display = 'block';
+                noArticlesEl.textContent = 'Chyba při načítání článků.';
+            }
+        }
+
+        // Funkce pro editaci článku
+        async function editArticle(articleId) {
+            console.log('Načítám článek pro editaci:', articleId);
+            
+            try {
+                const article = await window.articleDB.getArticleById(articleId);
+                if (!article) {
+                    alert('Článek se nepodařilo načíst.');
+                    return;
+                }
+                
+                // Naplnění formuláře daty
+                document.getElementById('edit-article-id').value = article.id;
+                document.getElementById('edit-article-date').value = window.articleDB.formatDatetime(article.date);
+                document.getElementById('edit-article-title').value = article.title;
+                document.getElementById('edit-article-excerpt').value = article.excerpt;
+                document.getElementById('edit-source-title').value = article.source_title || '';
+                document.getElementById('edit-source-url').value = article.source_url || '';
+                
+                // Nastavení obsahu v Quill editoru
+                editQuill.root.innerHTML = article.content;
+                
+                // Zobrazení aktuálního obrázku pokud existuje
+                const currentImageEl = document.getElementById('edit-current-image');
+                const currentImgEl = document.getElementById('edit-current-img');
+                if (article.image_url) {
+                    currentImgEl.src = article.image_url;
+                    currentImageEl.style.display = 'block';
+                } else {
+                    currentImageEl.style.display = 'none';
+                }
+                
+                // Skrytí preview nového obrázku
+                document.getElementById('edit-image-preview').style.display = 'none';
+                
+                // Zobrazení editačního formuláře
+                document.getElementById('edit-form-container').style.display = 'block';
+                
+                // Skrolování k formuláři
+                document.getElementById('edit-form-container').scrollIntoView({ behavior: 'smooth' });
+                
+            } catch (error) {
+                console.error('Chyba při načítání článku:', error);
+                alert('Došlo k chybě při načítání článku.');
+            }
+        }
+        
+        // Funkce pro zrušení editace
+        function cancelEdit() {
+            document.getElementById('edit-form-container').style.display = 'none';
+            document.getElementById('edit-article-form').reset();
+            editQuill.setContents([]);
+        }
+        
+        // Zpracování formuláře pro editaci článku
+        async function handleEditFormSubmit(e) {
+            e.preventDefault();
+            console.log('Editační formulář odeslán!');
+            
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            
+            try {
+                const formData = new FormData(this);
+                const articleId = formData.get('id');
+                
+                // Získání obsahu z Quill editoru
+                const content = editQuill.root.innerHTML;
+                
+                // Validace obsahu
+                const textContent = editQuill.getText().trim();
+                if (textContent.length === 0) {
+                    alert('Prosím vyplňte obsah článku.');
+                    return;
+                }
+                
+                submitBtn.textContent = 'Ukládám změny...';
+                submitBtn.disabled = true;
+                
+                const articleData = {
+                    date: formData.get('date'),
+                    title: formData.get('title'),
+                    excerpt: formData.get('excerpt'),
+                    content: content,
+                    source_url: formData.get('source_url'),
+                    source_title: formData.get('source_title')
+                };
+                
+                // Zachování současného obrázku pokud není vybrán nový
+                const currentArticle = await window.articleDB.getArticleById(articleId);
+                articleData.image_url = currentArticle.image_url;
+                
+                // Nahrání nového obrázku pokud byl vybrán
+                const imageFile = formData.get('image');
+                if (imageFile && imageFile.size > 0) {
+                    console.log('Nahrávám nový obrázek:', imageFile.name);
+                    submitBtn.textContent = 'Nahrávám obrázek...';
+                    const uploadResult = await window.articleDB.uploadImage(imageFile);
+                    
+                    if (uploadResult.success) {
+                        articleData.image_url = uploadResult.url;
+                        console.log('Nový obrázek nahrán:', uploadResult.url);
+                    } else {
+                        console.error('Chyba nahrávání:', uploadResult.error);
+                        alert('Chyba při nahrávání obrázku: ' + uploadResult.error);
+                        return;
+                    }
+                }
+                
+                submitBtn.textContent = 'Ukládám článek...';
+                const result = await window.articleDB.updateArticle(articleId, articleData);
+                console.log('Výsledek aktualizace:', result);
+                
+                if (result.success) {
+                    alert('Článek byl úspěšně aktualizován!');
+                    cancelEdit();
+                    await loadArticles(); // Obnovit seznam článků
+                } else {
+                    alert('Chyba při aktualizaci článku: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Chyba při aktualizaci článku:', error);
+                alert('Došlo k chybě při aktualizaci článku.');
+            } finally {
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
+        }
+
+        // Funkce pro smazání článku
+        async function deleteArticle(articleId, articleTitle) {
+            if (!confirm(`Opravdu chcete smazat článek "${articleTitle}"?\n\nTato akce je nevratná!`)) {
+                return;
+            }
+            
+            try {
+                console.log('Mažu článek:', articleId, articleTitle);
+                const result = await window.articleDB.deleteArticle(articleId);
+                
+                if (result.success) {
+                    alert('Článek byl úspěšně smazán!');
+                    await loadArticles(); // Obnovit seznam článků
+                } else {
+                    alert('Chyba při mazání článku: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Chyba při mazání článku:', error);
+                alert('Došlo k chybě při mazání článku.');
+            }
+        }
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archív - Vědci zjistili</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="database.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><a href="index.html" style="text-decoration: none; color: inherit;">Vědci zjistili</a></h1>
+            <nav>
+                <a href="index.html">Domů</a>
+                <a href="archiv.html">Archív</a>
+                <a href="admin.html">Administrace</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <h2 style="margin-bottom: 2rem; color: #2c3e50; font-weight: 300;">Archív článků</h2>
+            
+            <div id="loading" style="text-align: center; padding: 2rem; color: #666;">
+                Načítání archívu...
+            </div>
+            
+            <div id="archive-list" class="archive-list" style="display: none;">
+                <!-- Články se načtou dynamicky z databáze -->
+            </div>
+            
+            
+            <div id="no-articles" style="display: none; text-align: center; padding: 2rem; color: #666;">
+                Žádné články nejsou k dispozici.
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Vědci zjistili. Každý den něco nového.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Inicializace Supabase klienta
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+        
+        // Inicializace databáze třídy
+        window.articleDB.init(supabaseClient);
+
+        // Načtení archívu při načtení stránky
+        document.addEventListener('DOMContentLoaded', async function() {
+            const loadingEl = document.getElementById('loading');
+            const archiveListEl = document.getElementById('archive-list');
+            const noArticlesEl = document.getElementById('no-articles');
+
+            try {
+                const articles = await window.articleDB.getAllArticles();
+                
+                loadingEl.style.display = 'none';
+                
+                if (articles && articles.length > 0) {
+                    const archiveHTML = articles.map(article => `
+                        <article class="archive-item">
+                            <time datetime="${window.articleDB.formatDatetime(article.date)}">
+                                ${window.articleDB.formatDate(article.date)}
+                            </time>
+                            <h3>
+                                <a href="index.html?clanek=${article.slug}">
+                                    ${article.title}
+                                </a>
+                            </h3>
+                            <p class="excerpt">${article.excerpt}</p>
+                        </article>
+                    `).join('');
+                    
+                    archiveListEl.innerHTML = archiveHTML;
+                    archiveListEl.style.display = 'block';
+                } else {
+                    noArticlesEl.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Chyba při načítání archívu:', error);
+                loadingEl.style.display = 'none';
+                noArticlesEl.style.display = 'block';
+                noArticlesEl.textContent = 'Chyba při načítání archívu.';
+            }
+        });
+    </script>
+</body>
+</html>
