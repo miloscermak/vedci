@@ -33,6 +33,16 @@
                 <div id="article-content" class="article-content">
                 </div>
             </article>
+            
+            <section id="related-articles" class="related-articles" style="display: none;">
+                <h3>Poslední články</h3>
+                <ul id="related-articles-list">
+                </ul>
+                <div class="archive-link">
+                    <a href="archiv.html">Více článků v archivu →</a>
+                </div>
+            </section>
+            
             <div id="error-message" style="display: none; text-align: center; padding: 2rem; color: #e74c3c;">
                 Nepodařilo se načíst článek. Zkuste to později.
             </div>
@@ -103,6 +113,9 @@
                     
                     document.getElementById('article-content').innerHTML = contentHTML;
                     
+                    // Načtení a zobrazení souvisejících článků
+                    await loadRelatedArticles(article.id);
+                    
                     // Zobrazení článku
                     loadingEl.style.display = 'none';
                     articleEl.style.display = 'block';
@@ -122,6 +135,32 @@
                 errorEl.style.display = 'block';
             }
         });
+        
+        // Funkce pro načtení souvisejících článků
+        async function loadRelatedArticles(currentArticleId) {
+            try {
+                const relatedArticles = await window.articleDB.getRecentArticles(10, currentArticleId);
+                const relatedSection = document.getElementById('related-articles');
+                const relatedList = document.getElementById('related-articles-list');
+                
+                if (relatedArticles && relatedArticles.length > 0) {
+                    relatedList.innerHTML = '';
+                    
+                    relatedArticles.forEach(article => {
+                        const listItem = document.createElement('li');
+                        const link = document.createElement('a');
+                        link.href = `index.html?clanek=${article.slug}`;
+                        link.textContent = article.title;
+                        listItem.appendChild(link);
+                        relatedList.appendChild(listItem);
+                    });
+                    
+                    relatedSection.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Chyba při načítání souvisejících článků:', error);
+            }
+        }
     </script>
 </body>
 </html>

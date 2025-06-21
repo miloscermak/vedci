@@ -61,6 +61,42 @@ class ArticleDatabase {
         }
     }
 
+    // Získání posledních N článků (pro související články)
+    async getRecentArticles(limit = 10, excludeId = null) {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return [];
+            }
+
+            let query = this.supabase
+                .from('articles')
+                .select('id, title, slug, date, excerpt')
+                .order('date', { ascending: false })
+                .limit(limit + (excludeId ? 1 : 0));
+
+            const { data, error } = await query;
+
+            if (error) {
+                console.error('Chyba při načítání posledních článků:', error);
+                return [];
+            }
+
+            let articles = data || [];
+            
+            // Vyloučení aktuálního článku pokud je zadáno excludeId
+            if (excludeId) {
+                articles = articles.filter(article => article.id !== excludeId);
+                articles = articles.slice(0, limit);
+            }
+
+            return articles;
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return [];
+        }
+    }
+
     // Získání konkrétního článku podle ID
     async getArticleById(id) {
         try {
