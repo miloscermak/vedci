@@ -29,6 +29,7 @@
             <nav>
                 <a href="index.html">Domů</a>
                 <a href="archiv.html">Archív</a>
+                <a href="about.html">O projektu</a>
                 <a href="admin.html">Administrace</a>
             </nav>
         </div>
@@ -169,6 +170,30 @@
                 </form>
             </div>
 
+            <!-- Formulář pro editaci stránky O projektu -->
+            <div class="admin-form" style="margin-top: 2rem;">
+                <h3 style="margin-bottom: 1.5rem; color: #2c3e50; font-weight: 400;">Editace stránky O projektu</h3>
+                
+                <form id="about-page-form">
+                    <div class="form-group">
+                        <label for="about-title">Nadpis stránky:</label>
+                        <input type="text" id="about-title" name="title" placeholder="Nadpis stránky O projektu..." required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="about-content">Obsah stránky:</label>
+                        <div id="about-quill-editor" style="height: 300px;"></div>
+                        <textarea id="about-content" name="content" style="display: none;"></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn">Uložit stránku O projektu</button>
+                </form>
+                
+                <div id="about-loading" style="display: none; text-align: center; padding: 1rem; color: #666;">
+                    Načítání obsahu stránky...
+                </div>
+            </div>
+
             <div class="admin-form" style="margin-top: 2rem;">
                 <h3 style="margin-bottom: 1.5rem; color: #2c3e50; font-weight: 400;">Správa existujících článků</h3>
                 
@@ -297,6 +322,21 @@
                     placeholder: 'Upravte obsah článku...'
                 });
 
+                // Inicializace Quill editoru pro stránku O projektu
+                window.aboutQuill = new Quill('#about-quill-editor', {
+                    theme: 'snow',
+                    modules: {
+                        toolbar: [
+                            [{ 'header': [1, 2, 3, false] }],
+                            ['bold', 'italic', 'underline'],
+                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                            ['link'],
+                            ['clean']
+                        ]
+                    },
+                    placeholder: 'Upravte obsah stránky O projektu...'
+                });
+
                 // Preview obrázku
                 document.getElementById('article-image').addEventListener('change', function(e) {
                     const file = e.target.files[0];
@@ -336,9 +376,11 @@
                 // Připojení event listeneru pro formuláře
                 document.getElementById('article-form').addEventListener('submit', handleFormSubmit);
                 document.getElementById('edit-article-form').addEventListener('submit', handleEditFormSubmit);
+                document.getElementById('about-page-form').addEventListener('submit', handleAboutPageSubmit);
             }
 
             loadArticles();
+            loadAboutPage();
             
             // Nastavení dnešního data jako výchozí
             document.getElementById('article-date').valueAsDate = new Date();
@@ -609,6 +651,85 @@
             } catch (error) {
                 console.error('Chyba při mazání článku:', error);
                 alert('Došlo k chybě při mazání článku.');
+            }
+        }
+
+        // Funkce pro načtení obsahu stránky O projektu
+        async function loadAboutPage() {
+            const loadingEl = document.getElementById('about-loading');
+            const titleEl = document.getElementById('about-title');
+            
+            try {
+                loadingEl.style.display = 'block';
+                
+                const pageContent = await window.articleDB.getPageContent('about');
+                
+                if (pageContent) {
+                    titleEl.value = pageContent.title;
+                    window.aboutQuill.root.innerHTML = pageContent.content;
+                } else {
+                    // Výchozí hodnoty pokud stránka neexistuje
+                    titleEl.value = 'O projektu Vědci zjistili';
+                    window.aboutQuill.root.innerHTML = `
+                        <p>Vědci zjistili je projekt Miloše Čermáka, který vznikl v rámci iniciativy Inspiruj.se. Jeho cílem je ukázat, jak může generativní AI pomáhat při popularizaci vědy – tedy převádět složité studie do srozumitelného, čtivého a někdy i zábavného jazyka.</p>
+                        <p>Na webu pravidelně zveřejňujeme výběr těch nejzajímavějších vědeckých studií a článků z celého světa. Každá sumarizace vzniká kombinací lidského výběru a úprav s asistencí generativní umělé inteligence. AI dělá většinu práce, ale všechno projde lidskýma očima.</p>
+                        <p>Projekt ukazuje, že AI není jen nástroj pro vývojáře, ale může být i spoluautor – třeba právě v oblasti vědecké žurnalistiky. Pomáhá nám šetřit čas, třídit informace a zároveň psát tak, aby to čtenáře bavilo.</p>
+                        <p>Zajímá vás, jak můžete AI využít ve své profesi nebo koníčku? Přesně to učíme na našich kurzech a workshopech na <a href="https://inspiruj.se" target="_blank" rel="noopener">Inspiruj.se</a>.</p>
+                    `;
+                }
+                
+                loadingEl.style.display = 'none';
+                
+            } catch (error) {
+                console.error('Chyba při načítání stránky O projektu:', error);
+                loadingEl.style.display = 'none';
+            }
+        }
+
+        // Funkce pro zpracování formuláře stránky O projektu
+        async function handleAboutPageSubmit(e) {
+            e.preventDefault();
+            console.log('Formulář stránky O projektu odeslán!');
+            
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            
+            try {
+                const formData = new FormData(this);
+                
+                // Získání obsahu z Quill editoru
+                const content = window.aboutQuill.root.innerHTML;
+                console.log('Obsah stránky:', content);
+                
+                // Validace obsahu
+                const textContent = window.aboutQuill.getText().trim();
+                if (textContent.length === 0) {
+                    alert('Prosím vyplňte obsah stránky.');
+                    return;
+                }
+                
+                submitBtn.textContent = 'Ukládám...';
+                submitBtn.disabled = true;
+                
+                const result = await window.articleDB.updatePageContent(
+                    'about',
+                    formData.get('title'),
+                    content
+                );
+                
+                console.log('Výsledek uložení stránky:', result);
+                
+                if (result.success) {
+                    alert('Stránka O projektu byla úspěšně uložena!');
+                } else {
+                    alert('Chyba při ukládání stránky: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Chyba při ukládání stránky:', error);
+                alert('Došlo k chybě při ukládání stránky.');
+            } finally {
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
             }
         }
 

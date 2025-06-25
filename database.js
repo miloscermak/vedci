@@ -322,6 +322,62 @@ class ArticleDatabase {
             .replace(/^-|-$/g, '')
             .substring(0, 60);
     }
+
+    // Získání obsahu statické stránky podle klíče
+    async getPageContent(pageKey) {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return null;
+            }
+
+            const { data, error } = await this.supabase
+                .from('pages')
+                .select('*')
+                .eq('page_key', pageKey)
+                .single();
+
+            if (error) {
+                console.error('Chyba při načítání stránky:', error);
+                return null;
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return null;
+        }
+    }
+
+    // Aktualizace obsahu statické stránky
+    async updatePageContent(pageKey, title, content) {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return { success: false, error: 'Supabase klient není inicializován' };
+            }
+
+            const { data, error } = await this.supabase
+                .from('pages')
+                .update({
+                    title: title,
+                    content: content,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('page_key', pageKey)
+                .select();
+
+            if (error) {
+                console.error('Chyba při aktualizaci stránky:', error);
+                return { success: false, error: error.message };
+            }
+
+            return { success: true, data: data[0] };
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return { success: false, error: error.message };
+        }
+    }
 }
 
 // Vytvoření globální instance

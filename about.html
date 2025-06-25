@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O projektu - Vědci zjistili</title>
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1VKMTJ7HFT"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-1VKMTJ7HFT');
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="database.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><a href="index.html" style="text-decoration: none; color: inherit;">Vědci zjistili</a></h1>
+            <nav>
+                <a href="index.html">Domů</a>
+                <a href="archiv.html">Archív</a>
+                <a href="about.html">O projektu</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <div id="loading" style="text-align: center; padding: 2rem; color: #666;">
+                Načítání...
+            </div>
+            
+            <article class="main-article" id="about-content" style="display: none;">
+                <header class="article-header">
+                    <h2>O projektu</h2>
+                </header>
+                <div class="article-content" id="about-text">
+                    <!-- Obsah se načte z databáze nebo zobrazí výchozí text -->
+                </div>
+            </article>
+            
+            <div id="error-message" style="display: none; text-align: center; padding: 2rem; color: #e74c3c;">
+                Nepodařilo se načíst obsah stránky. Zkuste to později.
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Vědci zjistili. Každý den něco nového.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Výchozí text o projektu
+        const DEFAULT_ABOUT_TEXT = `
+            <p>Vědci zjistili je projekt Miloše Čermáka, který vznikl v rámci iniciativy Inspiruj.se. Jeho cílem je ukázat, jak může generativní AI pomáhat při popularizaci vědy – tedy převádět složité studie do srozumitelného, čtivého a někdy i zábavného jazyka.</p>
+            
+            <p>Na webu pravidelně zveřejňujeme výběr těch nejzajímavějších vědeckých studií a článků z celého světa. Každá sumarizace vzniká kombinací lidského výběru a úprav s asistencí generativní umělé inteligence. AI dělá většinu práce, ale všechno projde lidskýma očima.</p>
+            
+            <p>Projekt ukazuje, že AI není jen nástroj pro vývojáře, ale může být i spoluautor – třeba právě v oblasti vědecké žurnalistiky. Pomáhá nám šetřit čas, třídit informace a zároveň psát tak, aby to čtenáře bavilo.</p>
+            
+            <p>Zajímá vás, jak můžete AI využít ve své profesi nebo koníčku? Přesně to učíme na našich kurzech a workshopech na <a href="https://inspiruj.se" target="_blank" rel="noopener">Inspiruj.se</a>.</p>
+        `;
+
+        // Inicializace Supabase klienta
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+        
+        // Inicializace databáze třídy
+        window.articleDB.init(supabaseClient);
+
+        // Načtení obsahu stránky
+        document.addEventListener('DOMContentLoaded', async function() {
+            const loadingEl = document.getElementById('loading');
+            const contentEl = document.getElementById('about-content');
+            const textEl = document.getElementById('about-text');
+            const errorEl = document.getElementById('error-message');
+
+            try {
+                // Pokusit se načíst obsah z databáze
+                let aboutContent = null;
+                
+                if (window.articleDB.getPageContent) {
+                    aboutContent = await window.articleDB.getPageContent('about');
+                }
+                
+                if (aboutContent && aboutContent.content) {
+                    textEl.innerHTML = aboutContent.content;
+                } else {
+                    // Zobrazit výchozí text
+                    textEl.innerHTML = DEFAULT_ABOUT_TEXT;
+                }
+                
+                loadingEl.style.display = 'none';
+                contentEl.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Chyba při načítání obsahu:', error);
+                
+                // V případě chyby zobrazit výchozí text
+                textEl.innerHTML = DEFAULT_ABOUT_TEXT;
+                loadingEl.style.display = 'none';
+                contentEl.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
