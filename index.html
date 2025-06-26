@@ -162,7 +162,15 @@
                         const listItem = document.createElement('li');
                         const link = document.createElement('a');
                         link.href = `index.html?clanek=${article.slug}`;
-                        link.textContent = article.title;
+                        
+                        // Formátování data do formátu DD/M/YY
+                        const articleDate = new Date(article.date);
+                        const day = articleDate.getDate();
+                        const month = articleDate.getMonth() + 1;
+                        const year = articleDate.getFullYear().toString().slice(-2);
+                        const formattedDate = `${day}/${month}/${year}`;
+                        
+                        link.textContent = `${article.title} (${formattedDate})`;
                         listItem.appendChild(link);
                         relatedList.appendChild(listItem);
                     });
