@@ -62,9 +62,19 @@
         <div class="container">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
                 <h2 style="color: #2c3e50; font-weight: 300;">Administrace</h2>
-                <button onclick="logout()" style="padding: 0.5rem 1rem; background: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                    Odhlásit se
-                </button>
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <label for="newsletter-toggle" style="color: #2c3e50; font-size: 0.9rem;">Newsletter sekce:</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="newsletter-toggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                        <span id="newsletter-status" style="color: #27ae60; font-size: 0.9rem; font-weight: 500;">Zapnuto</span>
+                    </div>
+                    <button onclick="logout()" style="padding: 0.5rem 1rem; background: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        Odhlásit se
+                    </button>
+                </div>
             </div>
             
             <div class="admin-form">
@@ -372,6 +382,9 @@
             
             // Inicializace databáze třídy
             window.articleDB.init(supabaseClient);
+            
+            // Inicializace newsletter toggle
+            initializeNewsletterToggle();
 
             // Inicializace Quill editorů a načtení článků
             if (!window.quill) {
@@ -1238,6 +1251,51 @@
             setTimeout(() => {
                 element.style.display = 'none';
             }, 5000);
+        }
+
+        // Newsletter toggle funkcionalita
+        function initializeNewsletterToggle() {
+            const toggle = document.getElementById('newsletter-toggle');
+            const status = document.getElementById('newsletter-status');
+            
+            // Načtení stavu z localStorage
+            const isEnabled = localStorage.getItem('newsletter-enabled') !== 'false';
+            toggle.checked = isEnabled;
+            updateNewsletterStatus(isEnabled);
+            
+            // Event listener pro změnu
+            toggle.addEventListener('change', function() {
+                const enabled = this.checked;
+                localStorage.setItem('newsletter-enabled', enabled.toString());
+                updateNewsletterStatus(enabled);
+                updateMainPageNewsletter(enabled);
+            });
+        }
+        
+        function updateNewsletterStatus(enabled) {
+            const status = document.getElementById('newsletter-status');
+            if (enabled) {
+                status.textContent = 'Zapnuto';
+                status.style.color = '#27ae60';
+            } else {
+                status.textContent = 'Vypnuto';
+                status.style.color = '#e74c3c';
+            }
+        }
+        
+        function updateMainPageNewsletter(enabled) {
+            // Pošleme zprávu do parent window (pokud je admin otevřený v iframe)
+            // nebo aktualizujeme pomocí postMessage API
+            try {
+                if (window.opener && !window.opener.closed) {
+                    window.opener.postMessage({
+                        type: 'newsletter-toggle',
+                        enabled: enabled
+                    }, window.location.origin);
+                }
+            } catch (error) {
+                console.log('Nelze komunikovat s parent window:', error);
+            }
         }
 
     </script>

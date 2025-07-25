@@ -87,6 +87,9 @@
         
         // Inicializace databáze třídy
         window.articleDB.init(supabaseClient);
+        
+        // Kontrola newsletter nastavení
+        checkNewsletterVisibility();
 
         // Načtení článku podle URL parametru nebo nejnovějšího článku
         document.addEventListener('DOMContentLoaded', async function() {
@@ -321,6 +324,32 @@
                 messageDiv.style.display = 'none';
             }, 8000);
         }
+        
+        // Kontrola viditelnosti newsletter sekce
+        function checkNewsletterVisibility() {
+            const newsletterSection = document.getElementById('newsletter-signup');
+            const isEnabled = localStorage.getItem('newsletter-enabled') !== 'false';
+            
+            if (isEnabled) {
+                newsletterSection.classList.remove('hidden');
+            } else {
+                newsletterSection.classList.add('hidden');
+            }
+        }
+        
+        // Poslouchání zpráv z admin okna
+        window.addEventListener('message', function(event) {
+            if (event.origin !== window.location.origin) return;
+            
+            if (event.data.type === 'newsletter-toggle') {
+                const newsletterSection = document.getElementById('newsletter-signup');
+                if (event.data.enabled) {
+                    newsletterSection.classList.remove('hidden');
+                } else {
+                    newsletterSection.classList.add('hidden');
+                }
+            }
+        });
     </script>
 </body>
 </html>
