@@ -105,51 +105,39 @@ class ResendEmailService {
         console.log(`📦 Připravil jsem ${emails.length} emailů pro odeslání`);
 
         try {
-            // Pošleme emaily jeden po druhém (kvůli CORS omezením)
-            let sent = 0;
-            let failed = 0;
-            const errors = [];
+            // Odeslání přes Netlify Functions
+            const response = await fetch('/.netlify/functions/send-newsletter', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    emails: emails,
+                    resendApiKey: this.apiKey
+                })
+            });
 
-            for (const email of emails) {
-                try {
-                    const response = await fetch('https://api.resend.com/emails', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${this.apiKey}`,
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(email)
-                    });
-
-                    if (response.ok) {
-                        sent++;
-                        console.log(`✅ Email odeslán na ${email.to[0]}`);
-                    } else {
-                        failed++;
-                        const errorData = await response.json().catch(() => ({}));
-                        errors.push(`${email.to[0]}: ${errorData.message || 'Unknown error'}`);
-                        console.error(`❌ Email neodeslán na ${email.to[0]}:`, errorData);
-                    }
-                } catch (emailError) {
-                    failed++;
-                    errors.push(`${email.to[0]}: ${emailError.message}`);
-                    console.error(`❌ Chyba při odesílání na ${email.to[0]}:`, emailError);
-                }
-
-                // Malá pauza mezi emaily aby nezatížíme API
-                await new Promise(resolve => setTimeout(resolve, 100));
+            if (!response.ok) {
+                throw new Error(`Netlify Function error! status: ${response.status}`);
             }
 
-            console.log(`📊 Výsledek: ${sent} odesláno, ${failed} neúspěšných`);
+            const result = await response.json();
+            console.log('📨 Výsledek z Netlify Functions:', result);
+            console.log('📊 Sent count:', result.sent);
+            console.log('📊 Failed count:', result.failed);
 
-            return {
-                sent: sent,
-                failed: failed,
-                errors: errors
-            };
+            if (result.success) {
+                return {
+                    sent: result.sent,
+                    failed: result.failed,
+                    errors: result.errors || []
+                };
+            } else {
+                throw new Error(result.error || 'Unknown error from Netlify Function');
+            }
 
         } catch (error) {
-            console.error('❌ Kritická chyba při odesílání newsletteru:', error);
+            console.error('❌ Chyba při odesílání přes Netlify Functions:', error);
             throw error;
         }
     }

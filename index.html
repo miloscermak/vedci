@@ -275,31 +275,48 @@
             submitBtn.textContent = 'Přihlásit se';
         });
         
-        // Odeslání ověřovacího emailu pomocí mailto odkazu (fallback pro CORS)
+        // Odeslání ověřovacího emailu přes Netlify Functions
         async function sendVerificationEmail(email, verificationToken) {
             try {
                 // Inicializace newsletter generatoru pro ověřovací email
                 const newsletterGen = new NewsletterGenerator();
                 await newsletterGen.loadVerificationTemplate();
                 
-                const verificationUrl = `${window.location.origin}/verify-email.html?token=${verificationToken}`;
+                const emailHTML = newsletterGen.generateVerificationEmailHTML(email, verificationToken);
+                const emailText = newsletterGen.generateVerificationEmailText(email, verificationToken);
+                const subject = newsletterGen.generateVerificationSubject();
                 
-                // Kvůli CORS omezením nemůžeme poslat email přímo z browseru
-                // Místo toho uložíme žádost a pošleme admin notifikaci
-                console.log('Ověřovací email se má poslat na:', email);
-                console.log('Ověřovací URL:', verificationUrl);
+                // Volání Netlify Functions
+                const response = await fetch('/.netlify/functions/send-email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        to: email,
+                        subject: subject,
+                        html: emailHTML,
+                        text: emailText,
+                        resendApiKey: window.RESEND_CONFIG.apiKey
+                    })
+                });
                 
-                // Simulujeme úspěch - v produkci by bylo potřeba serverless funkce
-                return { 
-                    success: false, 
-                    error: 'Registrace proběhla úspěšně! Kvůli technickým omezením prosím kontaktujte administrátora pro ručné ověření na milos@vedcizjistili.cz' 
-                };
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    console.error('Netlify Function error:', errorData);
+                    throw new Error(`Function error: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                console.log('Email sent successfully:', result);
+                
+                return { success: true };
                 
             } catch (error) {
                 console.error('Chyba při odesílání ověřovacího emailu:', error);
                 return { 
                     success: false, 
-                    error: 'Registrace proběhla úspěšně! Kvůli technickým omezením prosím kontaktujte administrátora pro ručné ověření na milos@vedcizjistili.cz' 
+                    error: 'Nepodařilo se odeslat ověřovací email. Zkuste to později nebo nás kontaktujte.' 
                 };
             }
         }
