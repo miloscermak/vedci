@@ -26,13 +26,23 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const { emails, resendApiKey } = JSON.parse(event.body);
+    const { emails } = JSON.parse(event.body);
 
-    if (!emails || !Array.isArray(emails) || !resendApiKey) {
+    if (!emails || !Array.isArray(emails)) {
       return {
         statusCode: 400,
         headers,
         body: JSON.stringify({ error: 'Missing required fields or invalid emails array' }),
+      };
+    }
+
+    // API klíč z environment variables (bezpečné)
+    const resendApiKey = process.env.RESEND_API_KEY;
+    if (!resendApiKey) {
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ error: 'Server configuration error - missing API key' }),
       };
     }
 

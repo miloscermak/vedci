@@ -21,9 +21,9 @@
     <script>
         // Fallback pro config.local.js pokud neexistuje online
         if (!window.RESEND_CONFIG || window.RESEND_CONFIG.apiKey === 'PLACEHOLDER_API_KEY') {
-            console.warn('config.local.js nenalezen, používám environmentální konfiguraci');
+            console.warn('config.local.js nenalezen, API klíč bude načten z environment variables');
             window.RESEND_CONFIG = {
-                apiKey: 're_Mpd284vf_J7y8UgG5tNYyNRnbtdrLutuH', // Pro online nasazení
+                apiKey: 'ENVIRONMENT_API_KEY', // Načte se z Netlify environment variables
                 fromEmail: 'newsletter@vedcizjistili.cz',
                 fromName: 'Vědci zjistili'
             };
@@ -286,7 +286,7 @@
                 const emailText = newsletterGen.generateVerificationEmailText(email, verificationToken);
                 const subject = newsletterGen.generateVerificationSubject();
                 
-                // Volání Netlify Functions
+                // Volání Netlify Functions (API klíč je serverside)
                 const response = await fetch('/.netlify/functions/send-email', {
                     method: 'POST',
                     headers: {
@@ -296,8 +296,7 @@
                         to: email,
                         subject: subject,
                         html: emailHTML,
-                        text: emailText,
-                        resendApiKey: window.RESEND_CONFIG.apiKey
+                        text: emailText
                     })
                 });
                 

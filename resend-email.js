@@ -105,15 +105,14 @@ class ResendEmailService {
         console.log(`📦 Připravil jsem ${emails.length} emailů pro odeslání`);
 
         try {
-            // Odeslání přes Netlify Functions
+            // Odeslání přes Netlify Functions (API klíč je serverside)
             const response = await fetch('/.netlify/functions/send-newsletter', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    emails: emails,
-                    resendApiKey: this.apiKey
+                    emails: emails
                 })
             });
 
