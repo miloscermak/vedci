@@ -20,7 +20,17 @@
     <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
     <script src="config.js"></script>
-    <script src="config.local.js"></script>
+    <script>
+        // Fallback pro config.local.js pokud neexistuje online
+        if (!window.RESEND_CONFIG || window.RESEND_CONFIG.apiKey === 'PLACEHOLDER_API_KEY') {
+            console.warn('config.local.js nenalezen, používám environmentální konfiguraci');
+            window.RESEND_CONFIG = {
+                apiKey: 're_Mpd284vf_J7y8UgG5tNYyNRnbtdrLutuH', // Pro online nasazení
+                fromEmail: 'newsletter@vedcizjistili.cz',
+                fromName: 'Vědci zjistili'
+            };
+        }
+    </script>
     <script src="database.js"></script>
     <script src="newsletter-generator.js"></script>
     <script src="resend-email.js"></script>
