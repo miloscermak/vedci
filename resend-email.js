@@ -105,39 +105,51 @@ class ResendEmailService {
         console.log(`📦 Připravil jsem ${emails.length} emailů pro odeslání`);
 
         try {
-            // Odeslání pomocí Node.js proxy (obchází CORS)
-            const response = await fetch('/send-email', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    emails: emails,
-                    resendApiKey: this.apiKey
-                })
-            });
+            // Pošleme emaily jeden po druhém (kvůli CORS omezením)
+            let sent = 0;
+            let failed = 0;
+            const errors = [];
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            for (const email of emails) {
+                try {
+                    const response = await fetch('https://api.resend.com/emails', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${this.apiKey}`,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(email)
+                    });
+
+                    if (response.ok) {
+                        sent++;
+                        console.log(`✅ Email odeslán na ${email.to[0]}`);
+                    } else {
+                        failed++;
+                        const errorData = await response.json().catch(() => ({}));
+                        errors.push(`${email.to[0]}: ${errorData.message || 'Unknown error'}`);
+                        console.error(`❌ Email neodeslán na ${email.to[0]}:`, errorData);
+                    }
+                } catch (emailError) {
+                    failed++;
+                    errors.push(`${email.to[0]}: ${emailError.message}`);
+                    console.error(`❌ Chyba při odesílání na ${email.to[0]}:`, emailError);
+                }
+
+                // Malá pauza mezi emaily aby nezatížíme API
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
 
-            const result = await response.json();
-            console.log('📨 Výsledek z Node.js proxy:', result);
-            console.log('📊 Sent count:', result.sent);
-            console.log('📊 Failed count:', result.failed);
+            console.log(`📊 Výsledek: ${sent} odesláno, ${failed} neúspěšných`);
 
-            if (result.success) {
-                return {
-                    sent: result.sent,
-                    failed: result.failed,
-                    errors: result.results.filter(r => !r.success).map(r => `${r.email}: ${r.error}`)
-                };
-            } else {
-                throw new Error(result.error || 'Unknown error from PHP proxy');
-            }
+            return {
+                sent: sent,
+                failed: failed,
+                errors: errors
+            };
 
         } catch (error) {
-            console.error('❌ Chyba při odesílání přes PHP proxy:', error);
+            console.error('❌ Kritická chyba při odesílání newsletteru:', error);
             throw error;
         }
     }

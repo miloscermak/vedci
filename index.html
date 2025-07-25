@@ -265,7 +265,7 @@
             submitBtn.textContent = 'Přihlásit se';
         });
         
-        // Odeslání ověřovacího emailu
+        // Odeslání ověřovacího emailu přímo přes Resend API
         async function sendVerificationEmail(email, verificationToken) {
             try {
                 // Inicializace newsletter generatoru pro ověřovací email
@@ -276,40 +276,45 @@
                 const emailText = newsletterGen.generateVerificationEmailText(email, verificationToken);
                 const subject = newsletterGen.generateVerificationSubject();
                 
-                // Odeslání přes server API
-                const response = await fetch('/send-email', {
+                // Přímé volání Resend API
+                const response = await fetch('https://api.resend.com/emails', {
                     method: 'POST',
                     headers: {
+                        'Authorization': `Bearer ${window.RESEND_CONFIG.apiKey}`,
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        emails: [{
-                            from: `${window.RESEND_CONFIG.fromName} <${window.RESEND_CONFIG.fromEmail}>`,
-                            to: [email],
-                            subject: subject,
-                            html: emailHTML,
-                            text: emailText
-                        }],
-                        resendApiKey: window.RESEND_CONFIG.apiKey
+                        from: `${window.RESEND_CONFIG.fromName} <${window.RESEND_CONFIG.fromEmail}>`,
+                        to: [email],
+                        subject: subject,
+                        html: emailHTML,
+                        text: emailText
                     })
                 });
                 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    const errorData = await response.json().catch(() => ({}));
+                    console.error('Resend API error:', errorData);
+                    throw new Error(`Resend API error: ${response.status}`);
                 }
                 
                 const result = await response.json();
+                console.log('Email sent successfully:', result);
                 
-                if (result.success && result.sent > 0) {
-                    return { success: true };
-                } else {
-                    console.error('Chyba při odesílání ověřovacího emailu:', result);
-                    return { success: false, error: 'Nepodařilo se odeslat ověřovací email' };
-                }
+                return { success: true };
                 
             } catch (error) {
                 console.error('Chyba při odesílání ověřovacího emailu:', error);
-                return { success: false, error: error.message };
+                
+                // Fallback: alespoň informuj uživatele, že registrace proběhla
+                if (error.message.includes('CORS') || error.message.includes('blocked')) {
+                    return { 
+                        success: false, 
+                        error: 'Registrace proběhla úspěšně, ale ověřovací email se nepodařilo odeslat kvůli technickým omezením. Kontaktujte nás prosím pro ručné ověření.' 
+                    };
+                }
+                
+                return { success: false, error: 'Nepodařilo se odeslat ověřovací email' };
             }
         }
 
