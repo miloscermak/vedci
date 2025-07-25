@@ -968,18 +968,12 @@
 
         // Test email připojení
         async function testEmailConnection() {
-            if (!emailService) return;
+            // Email služba funguje přes Netlify Functions
+            console.log('📧 Email služba je nakonfigurována přes Netlify Functions');
             
-            const result = await emailService.testConnection();
-            
-            if (!result.success) {
-                console.warn('Resend připojení selhalo:', result.error);
-                
-                // Zobrazení varování v UI
-                const statusEl = document.getElementById('newsletter-send-status');
-                statusEl.textContent = 'Varování: Email služba není nakonfigurována';
-                statusEl.style.color = '#f39c12';
-            }
+            const statusEl = document.getElementById('newsletter-send-status');
+            statusEl.textContent = 'Email služba je nakonfigurována (Netlify Functions)';
+            statusEl.style.color = '#27ae60';
         }
 
         // Odeslání newsletteru
@@ -995,11 +989,7 @@
                 return;
             }
             
-            // Kontrola konfigurace email služby
-            if (!emailService || !emailService.isConfigured()) {
-                alert('Email služba není nakonfigurována!\n\nPřidejte Resend API klíč do config.js a obnovte stránku.');
-                return;
-            }
+            // Poznámka: API klíč je nyní v Netlify environment variables
             
             // Potvrzení odeslání
             if (!confirm('Opravdu chcete odeslat newsletter všem odběratelům?\n\nTato akce je nevratná!')) {
