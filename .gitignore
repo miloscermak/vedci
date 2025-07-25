@@ -64,3 +64,6 @@ bower_components
 # Temporary folders
 tmp/
 temp/
+
+# Konfigurační soubory s API klíči
+config.local.js

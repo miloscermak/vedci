@@ -11,9 +11,10 @@ const SUPABASE_CONFIG = {
 // anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
 
 // Resend konfigurace pro newsletter
+// BEZPEČNOST: API klíč je nyní v separátním souboru config.local.js (není v Gitu)
 const RESEND_CONFIG = {
-    apiKey: 're_C38cinM2_CwwKaM8tdhMEpZUn7BKBknKc', // Zde vložte váš Resend API klíč
-    fromEmail: 'newsletter@vedcizjistili.cz', // Ověřená doména!
+    apiKey: 'PLACEHOLDER_API_KEY', // Skutečný klíč je v config.local.js
+    fromEmail: 'newsletter@vedcizjistili.cz', 
     fromName: 'Vědci zjistili'
 };
 
