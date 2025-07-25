@@ -87,12 +87,11 @@
         
         // Inicializace databáze třídy
         window.articleDB.init(supabaseClient);
-        
-        // Kontrola newsletter nastavení
-        checkNewsletterVisibility();
 
         // Načtení článku podle URL parametru nebo nejnovějšího článku
         document.addEventListener('DOMContentLoaded', async function() {
+            // Kontrola newsletter nastavení (po načtení DOM)
+            checkNewsletterVisibility();
             const loadingEl = document.getElementById('loading');
             const articleEl = document.getElementById('main-article');
             const errorEl = document.getElementById('error-message');
