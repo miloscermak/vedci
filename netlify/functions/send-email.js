@@ -1,6 +1,17 @@
-const fetch = require('node-fetch');
+// Import fetch pro Node.js
+const fetch = (() => {
+  try {
+    return require('node-fetch');
+  } catch (e) {
+    // Fallback pro novější Node.js verze
+    return globalThis.fetch;
+  }
+})();
 
 exports.handler = async (event, context) => {
+  console.log('Function called with method:', event.httpMethod);
+  console.log('Environment variables check:', !!process.env.RESEND_API_KEY);
+  
   // Povolení CORS
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -81,10 +92,15 @@ exports.handler = async (event, context) => {
 
   } catch (error) {
     console.error('Function error:', error);
+    console.error('Error stack:', error.stack);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Internal server error' }),
+      body: JSON.stringify({ 
+        error: 'Internal server error', 
+        details: error.message,
+        hasApiKey: !!process.env.RESEND_API_KEY
+      }),
     };
   }
 };

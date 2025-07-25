@@ -1,4 +1,12 @@
-const fetch = require('node-fetch');
+// Import fetch pro Node.js
+const fetch = (() => {
+  try {
+    return require('node-fetch');
+  } catch (e) {
+    // Fallback pro novější Node.js verze
+    return globalThis.fetch;
+  }
+})();
 
 exports.handler = async (event, context) => {
   // Povolení CORS
