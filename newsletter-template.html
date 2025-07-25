@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{article_title}} - Vědci zjistili</title>
+    <style>
+        /* Email-safe CSS styles */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Georgia, 'Times New Roman', serif;
+            line-height: 1.6;
+            color: #333333;
+            background-color: #f8f9fa;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+        }
+        
+        .header {
+            background-color: #ffffff;
+            border-bottom: 1px solid #e5e5e5;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 300;
+            color: #2c3e50;
+            text-decoration: none;
+        }
+        
+        .header a {
+            color: inherit;
+            text-decoration: none;
+        }
+        
+        .content {
+            padding: 30px 20px;
+        }
+        
+        .article-date {
+            color: #888888;
+            font-size: 14px;
+            margin-bottom: 10px;
+            font-family: Helvetica, Arial, sans-serif;
+        }
+        
+        .article-title {
+            font-size: 24px;
+            font-weight: 400;
+            color: #2c3e50;
+            line-height: 1.3;
+            margin: 0 0 20px 0;
+        }
+        
+        .article-image {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .article-excerpt {
+            font-size: 16px;
+            color: #444444;
+            margin-bottom: 25px;
+            text-align: justify;
+        }
+        
+        .read-more {
+            text-align: center;
+            margin: 30px 0;
+        }
+        
+        .read-more a {
+            display: inline-block;
+            background-color: #3498db;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        
+        .source {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid #f0f0f0;
+            font-size: 14px;
+            color: #666666;
+        }
+        
+        .source a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        
+        .footer {
+            background-color: #f8f9fa;
+            border-top: 1px solid #e5e5e5;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+            color: #666666;
+        }
+        
+        .unsubscribe {
+            margin-top: 15px;
+            font-size: 12px;
+        }
+        
+        .unsubscribe a {
+            color: #888888;
+            text-decoration: underline;
+        }
+        
+        /* Mobile responsiveness */
+        @media only screen and (max-width: 600px) {
+            .container {
+                width: 100% !important;
+            }
+            
+            .header h1 {
+                font-size: 24px !important;
+            }
+            
+            .article-title {
+                font-size: 20px !important;
+            }
+            
+            .content {
+                padding: 20px 15px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><a href="{{website_url}}">Vědci zjistili</a></h1>
+        </div>
+        
+        <div class="content">
+            <div class="article-date">{{article_date}}</div>
+            <h2 class="article-title">{{article_title}}</h2>
+            
+            {{#if article_image}}
+            <img src="{{article_image}}" alt="{{article_title}}" class="article-image">
+            {{/if}}
+            
+            <div class="article-excerpt">
+                {{article_excerpt}}
+            </div>
+            
+            <div class="read-more">
+                <a href="{{article_url}}">Číst celý článek</a>
+            </div>
+            
+            {{#if source_info}}
+            <div class="source">
+                {{source_info}}
+            </div>
+            {{/if}}
+        </div>
+        
+        <div class="footer">
+            <p>&copy; 2025 Vědci zjistili. Každý den něco nového.</p>
+            <p>Tento email jste obdrželi, protože jste se přihlásili k odběru newsletteru na webu Vědci zjistili.</p>
+            <div class="unsubscribe">
+                <a href="{{unsubscribe_url}}">Odhlásit se z odběru</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

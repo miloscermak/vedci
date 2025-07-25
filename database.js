@@ -378,6 +378,306 @@ class ArticleDatabase {
             return { success: false, error: error.message };
         }
     }
+
+    // Newsletter funkce - Získání všech aktivních subscriberů
+    async getActiveSubscribers() {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return [];
+            }
+
+            const { data, error } = await this.supabase
+                .from('newsletter_subscribers')
+                .select('email, unsubscribe_token')
+                .eq('is_active', true)
+                .eq('verified', true);
+
+            if (error) {
+                console.error('Chyba při načítání subscriberů:', error);
+                return [];
+            }
+
+            console.log('🔍 Načetl jsem ověřené aktivní subscribery z DB:', data);
+            return data || [];
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return [];
+        }
+    }
+
+    // Newsletter funkce - Přidání nového subscribera (neověřeného)
+    async addSubscriber(email) {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return { success: false, error: 'Supabase klient není inicializován' };
+            }
+
+            // Generování verification tokenu
+            const verificationToken = crypto.randomUUID();
+
+            const { data, error } = await this.supabase
+                .from('newsletter_subscribers')
+                .insert([{ 
+                    email: email,
+                    verified: false,
+                    verification_token: verificationToken,
+                    is_active: true
+                }])
+                .select();
+
+            if (error) {
+                console.error('Chyba při přidávání subscribera:', error);
+                return { success: false, error: error.message };
+            }
+
+            return { success: true, data: data[0], verificationToken: verificationToken };
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // Newsletter funkce - Odhlášení subscribera pomocí tokenu
+    async unsubscribe(token) {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return { success: false, error: 'Supabase klient není inicializován' };
+            }
+
+            const { data, error } = await this.supabase
+                .from('newsletter_subscribers')
+                .update({ is_active: false })
+                .eq('unsubscribe_token', token)
+                .select();
+
+            if (error) {
+                console.error('Chyba při odhlašování:', error);
+                return { success: false, error: error.message };
+            }
+
+            if (!data || data.length === 0) {
+                return { success: false, error: 'Neplatný token' };
+            }
+
+            return { success: true, data: data[0] };
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // Newsletter funkce - Zaznamenání odeslaného emailu
+    async logNewsletterEmail(articleId, subject, recipientsCount) {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return { success: false, error: 'Supabase klient není inicializován' };
+            }
+
+            const { data, error } = await this.supabase
+                .from('newsletter_emails')
+                .insert([{
+                    article_id: articleId,
+                    subject: subject,
+                    recipients_count: recipientsCount
+                }])
+                .select();
+
+            if (error) {
+                console.error('Chyba při zaznamenávání emailu:', error);
+                return { success: false, error: error.message };
+            }
+
+            return { success: true, data: data[0] };
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // Newsletter funkce - Získání statistik
+    async getNewsletterStats() {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return null;
+            }
+
+            const { data: subscribersData, error: subscribersError } = await this.supabase
+                .from('newsletter_subscribers')
+                .select('is_active');
+
+            if (subscribersError) {
+                console.error('Chyba při načítání statistik subscriberů:', subscribersError);
+                return null;
+            }
+
+            const { data: emailsData, error: emailsError } = await this.supabase
+                .from('newsletter_emails')
+                .select('recipients_count');
+
+            if (emailsError) {
+                console.error('Chyba při načítání statistik emailů:', emailsError);
+                return null;
+            }
+
+            const totalSubscribers = subscribersData ? subscribersData.length : 0;
+            const activeSubscribers = subscribersData ? subscribersData.filter(s => s.is_active).length : 0;
+            const totalEmailsSent = emailsData ? emailsData.length : 0;
+            const totalRecipients = emailsData ? emailsData.reduce((sum, email) => sum + (email.recipients_count || 0), 0) : 0;
+
+            return {
+                totalSubscribers,
+                activeSubscribers,
+                totalEmailsSent,
+                totalRecipients
+            };
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return null;
+        }
+    }
+
+    // Newsletter funkce - Získání všech odběratelů pro admin
+    async getAllSubscribers() {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return [];
+            }
+
+            const { data, error } = await this.supabase
+                .from('newsletter_subscribers')
+                .select('id, email, subscribed_at, is_active, verified')
+                .order('subscribed_at', { ascending: false });
+
+            if (error) {
+                console.error('Chyba při načítání všech subscriberů:', error);
+                return [];
+            }
+
+            return data || [];
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return [];
+        }
+    }
+
+    // Newsletter funkce - Ověření emailu pomocí tokenu
+    async verifyEmail(verificationToken) {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return { success: false, error: 'Supabase klient není inicializován' };
+            }
+
+            const { data, error } = await this.supabase
+                .from('newsletter_subscribers')
+                .update({ 
+                    verified: true,
+                    verification_token: null // Token už nepotřebujeme
+                })
+                .eq('verification_token', verificationToken)
+                .eq('verified', false) // Jen neověřené
+                .select();
+
+            if (error) {
+                console.error('Chyba při ověřování emailu:', error);
+                return { success: false, error: error.message };
+            }
+
+            if (!data || data.length === 0) {
+                return { success: false, error: 'Neplatný nebo již použitý ověřovací token' };
+            }
+
+            return { success: true, data: data[0] };
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // Newsletter funkce - Smazání odběratele
+    async deleteSubscriber(subscriberId) {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return { success: false, error: 'Supabase klient není inicializován' };
+            }
+
+            const { error } = await this.supabase
+                .from('newsletter_subscribers')
+                .delete()
+                .eq('id', subscriberId);
+
+            if (error) {
+                console.error('Chyba při mazání subscribera:', error);
+                return { success: false, error: error.message };
+            }
+
+            return { success: true };
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // Newsletter funkce - Aktivace/deaktivace odběratele
+    async toggleSubscriber(subscriberId, isActive) {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return { success: false, error: 'Supabase klient není inicializován' };
+            }
+
+            const { data, error } = await this.supabase
+                .from('newsletter_subscribers')
+                .update({ is_active: isActive })
+                .eq('id', subscriberId)
+                .select();
+
+            if (error) {
+                console.error('Chyba při změně stavu subscribera:', error);
+                return { success: false, error: error.message };
+            }
+
+            return { success: true, data: data[0] };
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // Newsletter funkce - Přidání odběratele z admin (bez ověření)
+    async addSubscriberAdmin(email) {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return { success: false, error: 'Supabase klient není inicializován' };
+            }
+
+            const { data, error } = await this.supabase
+                .from('newsletter_subscribers')
+                .insert([{ 
+                    email: email,
+                    is_active: true 
+                }])
+                .select();
+
+            if (error) {
+                console.error('Chyba při přidávání subscribera z admin:', error);
+                return { success: false, error: error.message };
+            }
+
+            return { success: true, data: data[0] };
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return { success: false, error: error.message };
+        }
+    }
 }
 
 // Vytvoření globální instance

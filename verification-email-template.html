@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ověření emailu - Vědci zjistili</title>
+    <style>
+        /* Email-safe CSS styles */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Georgia, 'Times New Roman', serif;
+            line-height: 1.6;
+            color: #333333;
+            background-color: #f8f9fa;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+        }
+        
+        .header {
+            background-color: #ffffff;
+            border-bottom: 1px solid #e5e5e5;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 300;
+            color: #2c3e50;
+            text-decoration: none;
+        }
+        
+        .header a {
+            color: inherit;
+            text-decoration: none;
+        }
+        
+        .content {
+            padding: 40px 30px;
+            text-align: center;
+        }
+        
+        .icon {
+            width: 80px;
+            height: 80px;
+            background-color: #3498db;
+            border-radius: 50%;
+            margin: 0 auto 30px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: white;
+        }
+        
+        .title {
+            font-size: 24px;
+            font-weight: 400;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        
+        .message {
+            font-size: 16px;
+            color: #555555;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .verify-button {
+            display: inline-block;
+            background-color: #3498db;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 15px 30px;
+            border-radius: 6px;
+            font-size: 18px;
+            font-weight: 500;
+            margin: 20px 0;
+        }
+        
+        .verify-button:hover {
+            background-color: #2980b9;
+        }
+        
+        .alternative {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            font-size: 14px;
+            color: #666666;
+        }
+        
+        .alternative a {
+            color: #3498db;
+            word-break: break-all;
+        }
+        
+        .footer {
+            background-color: #f8f9fa;
+            border-top: 1px solid #e5e5e5;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+            color: #666666;
+        }
+        
+        .footer p {
+            margin: 5px 0;
+        }
+        
+        /* Mobile responsiveness */
+        @media only screen and (max-width: 600px) {
+            .container {
+                width: 100% !important;
+            }
+            
+            .content {
+                padding: 30px 20px !important;
+            }
+            
+            .title {
+                font-size: 20px !important;
+            }
+            
+            .verify-button {
+                padding: 12px 20px !important;
+                font-size: 16px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><a href="{{website_url}}">Vědci zjistili</a></h1>
+        </div>
+        
+        <div class="content">
+            <div class="icon">
+                ✉️
+            </div>
+            
+            <h2 class="title">Ověřte svou emailovou adresu</h2>
+            
+            <div class="message">
+                <p>Děkujeme za přihlášení k odběru newsletteru <strong>Vědci zjistili</strong>!</p>
+                <p>Pro dokončení registrace a začátek odběru nejnovějších vědeckých objevů prosím klikněte na tlačítko níže.</p>
+            </div>
+            
+            <a href="{{verification_url}}" class="verify-button">
+                Ověřit emailovou adresu
+            </a>
+            
+            <div class="alternative">
+                <p>Pokud tlačítko nefunguje, zkopírujte a vložte tento odkaz do prohlížeče:</p>
+                <p><a href="{{verification_url}}">{{verification_url}}</a></p>
+                
+                <p style="margin-top: 20px; font-size: 12px; color: #888;">
+                    Tento odkaz vyprší za 24 hodin. Pokud jste se nepřihlašovali k odběru newsletteru, 
+                    tento email ignorujte.
+                </p>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>&copy; 2025 Vědci zjistili. Každý den něco nového.</p>
+            <p>Tento email jste obdrželi po registraci k newsletteru na webu Vědci zjistili.</p>
+        </div>
+    </div>
+</body>
+</html>

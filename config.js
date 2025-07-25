@@ -10,5 +10,13 @@ const SUPABASE_CONFIG = {
 // url: 'https://abcdefghijklmnop.supabase.co'
 // anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
 
+// Resend konfigurace pro newsletter
+const RESEND_CONFIG = {
+    apiKey: 're_C38cinM2_CwwKaM8tdhMEpZUn7BKBknKc', // Zde vložte váš Resend API klíč
+    fromEmail: 'newsletter@vedcizjistili.cz', // Ověřená doména!
+    fromName: 'Vědci zjistili'
+};
+
 // Export pro použití v jiných souborech
 window.SUPABASE_CONFIG = SUPABASE_CONFIG;
+window.RESEND_CONFIG = RESEND_CONFIG;

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ověření emailu - Vědci zjistili</title>
+    <link rel="stylesheet" href="styles.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="database.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><a href="index.html" style="text-decoration: none; color: inherit;">Vědci zjistili</a></h1>
+            <nav>
+                <a href="index.html">Domů</a>
+                <a href="archiv.html">Archív</a>
+                <a href="about.html">O projektu</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <div id="loading" style="text-align: center; padding: 3rem; color: #666;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">⏳</div>
+                <h2>Ověřování emailové adresy...</h2>
+                <p>Prosím čekejte, zpracováváme vaši žádost.</p>
+            </div>
+            
+            <div id="success-message" style="display: none; text-align: center; padding: 3rem;">
+                <div style="background: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 8px; padding: 3rem; margin-bottom: 2rem;">
+                    <div style="font-size: 4rem; margin-bottom: 1rem;">✅</div>
+                    <h2 style="margin: 0 0 1rem 0; color: #155724;">Email úspěšně ověřen!</h2>
+                    <p style="font-size: 1.1rem; margin-bottom: 1.5rem;">
+                        Vaše emailová adresa <strong id="verified-email"></strong> byla úspěšně ověřena.
+                    </p>
+                    <p style="color: #666;">
+                        Od této chvíle budete dostávat newsletter s nejnovějšími vědeckými objevy 
+                        přímo do své emailové schránky.
+                    </p>
+                </div>
+                <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                    <a href="index.html" class="btn">Přejít na hlavní stránku</a>
+                    <a href="archiv.html" class="btn" style="background: #6c757d;">Procházet archív</a>
+                </div>
+            </div>
+            
+            <div id="error-message" style="display: none; text-align: center; padding: 3rem;">
+                <div style="background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 8px; padding: 3rem; margin-bottom: 2rem;">
+                    <div style="font-size: 4rem; margin-bottom: 1rem;">❌</div>
+                    <h2 style="margin: 0 0 1rem 0; color: #721c24;">Chyba při ověřování</h2>
+                    <p id="error-text" style="font-size: 1.1rem; margin-bottom: 1.5rem;">
+                        Nepodařilo se ověřit emailovou adresu.
+                    </p>
+                    <div style="background: #fff; padding: 1.5rem; border-radius: 4px; margin-bottom: 1.5rem;">
+                        <h3 style="color: #721c24; margin-top: 0;">Možné příčiny:</h3>
+                        <ul style="text-align: left; color: #666; max-width: 400px; margin: 0 auto;">
+                            <li>Ověřovací odkaz je neplatný nebo expirovaný</li>
+                            <li>Email již byl dříve ověřen</li>
+                            <li>Odkaz byl poškozen při kopírování</li>
+                        </ul>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                    <a href="index.html" class="btn">Zkusit registraci znovu</a>
+                    <a href="index.html" class="btn" style="background: #6c757d;">Zpět na hlavní stránku</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Vědci zjistili. Každý den něco nového.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Inicializace Supabase klienta
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+        
+        // Inicializace databáze třídy
+        window.articleDB.init(supabaseClient);
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            const loadingEl = document.getElementById('loading');
+            const successEl = document.getElementById('success-message');
+            const errorEl = document.getElementById('error-message');
+            const errorTextEl = document.getElementById('error-text');
+            const verifiedEmailEl = document.getElementById('verified-email');
+
+            // Získání tokenu z URL parametrů
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+
+            if (!token) {
+                // Žádný token v URL
+                loadingEl.style.display = 'none';
+                errorTextEl.textContent = 'Neplatný ověřovací odkaz. Token nebyl nalezen.';
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            try {
+                // Pokus o ověření emailu
+                const result = await window.articleDB.verifyEmail(token);
+
+                if (result.success) {
+                    // Úspěšné ověření
+                    loadingEl.style.display = 'none';
+                    verifiedEmailEl.textContent = result.data.email;
+                    successEl.style.display = 'block';
+                    
+                    // Google Analytics event (pokud je dostupné)
+                    if (typeof gtag !== 'undefined') {
+                        gtag('event', 'email_verified', {
+                            'event_category': 'newsletter',
+                            'event_label': result.data.email
+                        });
+                    }
+                } else {
+                    // Chyba při ověřování
+                    loadingEl.style.display = 'none';
+                    errorTextEl.textContent = result.error || 'Nepodařilo se ověřit emailovou adresu.';
+                    errorEl.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Chyba při ověřování emailu:', error);
+                loadingEl.style.display = 'none';
+                errorTextEl.textContent = 'Došlo k neočekávané chybě. Zkuste to později.';
+                errorEl.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

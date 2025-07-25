@@ -19,6 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <script src="database.js"></script>
+    <script src="newsletter-generator.js"></script>
 </head>
 <body>
     <header>
@@ -45,6 +46,18 @@
                 <div id="article-content" class="article-content">
                 </div>
             </article>
+            
+            <section id="newsletter-signup" class="newsletter-signup">
+                <h3>Newsletter</h3>
+                <p>Přihlaste se k odběru a dostávejte nejnovější články přímo do emailu.</p>
+                <form id="newsletter-form" class="newsletter-form">
+                    <div class="newsletter-input-group">
+                        <input type="email" id="newsletter-email" placeholder="Váš email" required>
+                        <button type="submit" class="btn">Přihlásit se</button>
+                    </div>
+                </form>
+                <div id="newsletter-message" class="newsletter-message" style="display: none;"></div>
+            </section>
             
             <section id="related-articles" class="related-articles" style="display: none;">
                 <h3>Poslední články</h3>
@@ -180,6 +193,133 @@
             } catch (error) {
                 console.error('Chyba při načítání souvisejících článků:', error);
             }
+        }
+        
+        // Newsletter funkcionalita
+        document.getElementById('newsletter-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const emailInput = document.getElementById('newsletter-email');
+            const messageDiv = document.getElementById('newsletter-message');
+            const submitBtn = this.querySelector('button[type="submit"]');
+            
+            const email = emailInput.value.trim();
+            
+            if (!email) {
+                showNewsletterMessage('Zadejte prosím váš email.', 'error');
+                return;
+            }
+            
+            // Validace emailu
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                showNewsletterMessage('Zadejte prosím platný email.', 'error');
+                return;
+            }
+            
+            // Zobrazení loading stavu
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Přihlašování...';
+            
+            try {
+                // Pokus o vložení do databáze s ověřením
+                const result = await window.articleDB.addSubscriber(email);
+                
+                if (result.success) {
+                    // Odeslání ověřovacího emailu
+                    submitBtn.textContent = 'Odesílání ověřovacího emailu...';
+                    
+                    const sendResult = await sendVerificationEmail(email, result.verificationToken);
+                    
+                    if (sendResult.success) {
+                        showNewsletterMessage(
+                            'Děkujeme! Na váš email jsme poslali ověřovací odkaz. Kliknutím na něj dokončíte registraci.', 
+                            'success'
+                        );
+                        emailInput.value = '';
+                    } else {
+                        // Email se nepodařilo odeslat, ale registrace proběhla
+                        showNewsletterMessage(
+                            'Registrace proběhla, ale nepodařilo se odeslat ověřovací email. Kontaktujte nás prosím.', 
+                            'error'
+                        );
+                    }
+                } else {
+                    if (result.error.includes('duplicate key')) {
+                        showNewsletterMessage('Tento email je již přihlášen k odběru nebo čeká na ověření.', 'error');
+                    } else {
+                        console.error('Chyba při přihlašování:', result.error);
+                        showNewsletterMessage('Nepodařilo se přihlásit k odběru. Zkuste to později.', 'error');
+                    }
+                }
+            } catch (error) {
+                console.error('Chyba při přihlašování:', error);
+                showNewsletterMessage('Nepodařilo se přihlásit k odběru. Zkuste to později.', 'error');
+            }
+            
+            // Obnovení původního stavu tlačítka
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Přihlásit se';
+        });
+        
+        // Odeslání ověřovacího emailu
+        async function sendVerificationEmail(email, verificationToken) {
+            try {
+                // Inicializace newsletter generatoru pro ověřovací email
+                const newsletterGen = new NewsletterGenerator();
+                await newsletterGen.loadVerificationTemplate();
+                
+                const emailHTML = newsletterGen.generateVerificationEmailHTML(email, verificationToken);
+                const emailText = newsletterGen.generateVerificationEmailText(email, verificationToken);
+                const subject = newsletterGen.generateVerificationSubject();
+                
+                // Odeslání přes server API
+                const response = await fetch('/send-email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        emails: [{
+                            from: `${window.RESEND_CONFIG.fromName} <${window.RESEND_CONFIG.fromEmail}>`,
+                            to: [email],
+                            subject: subject,
+                            html: emailHTML,
+                            text: emailText
+                        }],
+                        resendApiKey: window.RESEND_CONFIG.apiKey
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success && result.sent > 0) {
+                    return { success: true };
+                } else {
+                    console.error('Chyba při odesílání ověřovacího emailu:', result);
+                    return { success: false, error: 'Nepodařilo se odeslat ověřovací email' };
+                }
+                
+            } catch (error) {
+                console.error('Chyba při odesílání ověřovacího emailu:', error);
+                return { success: false, error: error.message };
+            }
+        }
+
+        function showNewsletterMessage(message, type) {
+            const messageDiv = document.getElementById('newsletter-message');
+            messageDiv.textContent = message;
+            messageDiv.className = `newsletter-message ${type}`;
+            messageDiv.style.display = 'block';
+            
+            // Schování zprávy po 8 sekundách (delší kvůli delší zprávě o ověření)
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 8000);
         }
     </script>
 </body>

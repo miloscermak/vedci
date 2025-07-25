@@ -21,6 +21,8 @@
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
     <script src="config.js"></script>
     <script src="database.js"></script>
+    <script src="newsletter-generator.js"></script>
+    <script src="resend-email.js"></script>
 </head>
 <body>
     <header>
@@ -191,6 +193,87 @@
                 
                 <div id="about-loading" style="display: none; text-align: center; padding: 1rem; color: #666;">
                     Načítání obsahu stránky...
+                </div>
+            </div>
+
+            <!-- Newsletter sekce -->
+            <div class="admin-form" style="margin-top: 2rem;">
+                <h3 style="margin-bottom: 1.5rem; color: #2c3e50; font-weight: 400;">Newsletter</h3>
+                
+                <!-- Newsletter statistiky -->
+                <div id="newsletter-stats" style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem;">Statistiky</h4>
+                    <div id="stats-loading" style="text-align: center; color: #666;">Načítání statistik...</div>
+                    <div id="stats-content" style="display: none;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 2rem; font-weight: bold; color: #3498db;" id="active-subscribers">0</div>
+                                <div style="font-size: 0.9rem; color: #666;">Aktivní odběratelé</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 2rem; font-weight: bold; color: #27ae60;" id="total-emails">0</div>
+                                <div style="font-size: 0.9rem; color: #666;">Odeslaných emailů</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 2rem; font-weight: bold; color: #f39c12;" id="total-recipients">0</div>
+                                <div style="font-size: 0.9rem; color: #666;">Celkem doručeno</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Odeslání newsletteru -->
+                <div style="background: #fff; border: 1px solid #e5e5e5; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem;">Odeslat newsletter</h4>
+                    <div style="margin-bottom: 1rem;">
+                        <label for="newsletter-article-select" style="display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500;">Vyberte článek:</label>
+                        <select id="newsletter-article-select" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+                            <option value="">Načítání článků...</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <button id="send-newsletter-btn" class="btn" onclick="sendNewsletter()" disabled>
+                            Odeslat newsletter
+                        </button>
+                        <span id="newsletter-send-status" style="color: #666; font-size: 0.9rem;"></span>
+                    </div>
+                    <div id="newsletter-preview" style="margin-top: 1rem; display: none;">
+                        <h5 style="color: #2c3e50; margin-bottom: 0.5rem;">Náhled emailu:</h5>
+                        <div style="background: #f8f9fa; padding: 1rem; border-radius: 4px; max-height: 300px; overflow-y: auto;">
+                            <div id="preview-content"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Správa odběratelů -->
+                <div style="background: #fff; border: 1px solid #e5e5e5; padding: 1.5rem; border-radius: 8px;">
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem;">Správa odběratelů</h4>
+                    
+                    <!-- Přidání nového odběratele -->
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem;">
+                        <h5 style="color: #2c3e50; margin-bottom: 0.5rem;">Přidat nového odběratele</h5>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <input type="email" id="add-subscriber-email" placeholder="email@example.com" style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            <button onclick="addSubscriberFromAdmin()" class="btn" style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                                Přidat
+                            </button>
+                        </div>
+                        <div id="add-subscriber-message" style="margin-top: 0.5rem; font-size: 0.9rem; display: none;"></div>
+                    </div>
+                    
+                    <!-- Seznam odběratelů -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h5 style="color: #2c3e50; margin: 0;">Seznam všech odběratelů</h5>
+                        <button id="toggle-subscribers-btn" class="btn" style="padding: 0.5rem 1rem; font-size: 0.9rem;" onclick="toggleSubscribersList()">
+                            Zobrazit seznam
+                        </button>
+                    </div>
+                    <div id="subscribers-list" style="display: none;">
+                        <div id="subscribers-loading" style="text-align: center; color: #666; padding: 1rem;">Načítání seznamu...</div>
+                        <div id="subscribers-content" style="display: none;">
+                            <!-- Seznam se načte dynamicky -->
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -381,6 +464,7 @@
 
             loadArticles();
             loadAboutPage();
+            loadNewsletterData();
             
             // Nastavení dnešního data jako výchozí
             document.getElementById('article-date').valueAsDate = new Date();
@@ -731,6 +815,429 @@
                 submitBtn.textContent = originalText;
                 submitBtn.disabled = false;
             }
+        }
+
+        // Newsletter funkce
+        let newsletterGenerator = null;
+        let emailService = null;
+
+        // Inicializace newsletter dat
+        async function loadNewsletterData() {
+            // Inicializace newsletter generatoru
+            newsletterGenerator = new NewsletterGenerator();
+            await newsletterGenerator.loadTemplate();
+            
+            // Inicializace email služby
+            emailService = new ResendEmailService();
+            
+            // Načtení statistik
+            await loadNewsletterStats();
+            
+            // Načtení článků pro newsletter select
+            await loadNewsletterArticles();
+            
+            // Test Resend připojení
+            await testEmailConnection();
+        }
+
+        // Načtení newsletter statistik
+        async function loadNewsletterStats() {
+            const statsLoadingEl = document.getElementById('stats-loading');
+            const statsContentEl = document.getElementById('stats-content');
+            
+            try {
+                const stats = await window.articleDB.getNewsletterStats();
+                
+                if (stats) {
+                    document.getElementById('active-subscribers').textContent = stats.activeSubscribers;
+                    document.getElementById('total-emails').textContent = stats.totalEmailsSent;
+                    document.getElementById('total-recipients').textContent = stats.totalRecipients;
+                    
+                    statsLoadingEl.style.display = 'none';
+                    statsContentEl.style.display = 'block';
+                } else {
+                    statsLoadingEl.textContent = 'Chyba při načítání statistik';
+                }
+            } catch (error) {
+                console.error('Chyba při načítání statistik:', error);
+                statsLoadingEl.textContent = 'Chyba při načítání statistik';
+            }
+        }
+
+        // Načtení článků pro newsletter
+        async function loadNewsletterArticles() {
+            const selectEl = document.getElementById('newsletter-article-select');
+            const sendBtn = document.getElementById('send-newsletter-btn');
+            
+            try {
+                const articles = await window.articleDB.getAllArticles();
+                
+                if (articles && articles.length > 0) {
+                    selectEl.innerHTML = '<option value="">Vyberte článek...</option>';
+                    
+                    articles.forEach(article => {
+                        const option = document.createElement('option');
+                        option.value = article.id;
+                        option.textContent = `${window.articleDB.formatDate(article.date)} - ${article.title}`;
+                        selectEl.appendChild(option);
+                    });
+                    
+                    sendBtn.disabled = false;
+                    
+                    // Event listener pro preview
+                    selectEl.addEventListener('change', showNewsletterPreview);
+                } else {
+                    selectEl.innerHTML = '<option value="">Žádné články nejsou k dispozici</option>';
+                }
+            } catch (error) {
+                console.error('Chyba při načítání článků:', error);
+                selectEl.innerHTML = '<option value="">Chyba při načítání článků</option>';
+            }
+        }
+
+        // Zobrazení náhledu newsletteru
+        async function showNewsletterPreview() {
+            const selectEl = document.getElementById('newsletter-article-select');
+            const previewEl = document.getElementById('newsletter-preview');
+            const previewContentEl = document.getElementById('preview-content');
+            
+            const articleId = selectEl.value;
+            
+            if (!articleId) {
+                previewEl.style.display = 'none';
+                return;
+            }
+            
+            try {
+                const article = await window.articleDB.getArticleById(articleId);
+                if (!article) {
+                    previewEl.style.display = 'none';
+                    return;
+                }
+                
+                // Generování náhledu emailu
+                const emailHTML = newsletterGenerator.generateEmailHTML(article, 'preview-token');
+                
+                // Zobrazení v iframe pro bezpečné zobrazení
+                const iframe = document.createElement('iframe');
+                iframe.style.width = '100%';
+                iframe.style.height = '400px';
+                iframe.style.border = '1px solid #ddd';
+                iframe.style.borderRadius = '4px';
+                
+                previewContentEl.innerHTML = '';
+                previewContentEl.appendChild(iframe);
+                
+                // Zápis HTML do iframe
+                iframe.contentDocument.open();
+                iframe.contentDocument.write(emailHTML);
+                iframe.contentDocument.close();
+                
+                previewEl.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Chyba při generování náhledu:', error);
+                previewContentEl.innerHTML = '<p style="color: #e74c3c;">Chyba při generování náhledu emailu.</p>';
+                previewEl.style.display = 'block';
+            }
+        }
+
+        // Test email připojení
+        async function testEmailConnection() {
+            if (!emailService) return;
+            
+            const result = await emailService.testConnection();
+            
+            if (!result.success) {
+                console.warn('Resend připojení selhalo:', result.error);
+                
+                // Zobrazení varování v UI
+                const statusEl = document.getElementById('newsletter-send-status');
+                statusEl.textContent = 'Varování: Email služba není nakonfigurována';
+                statusEl.style.color = '#f39c12';
+            }
+        }
+
+        // Odeslání newsletteru
+        async function sendNewsletter() {
+            const selectEl = document.getElementById('newsletter-article-select');
+            const sendBtn = document.getElementById('send-newsletter-btn');
+            const statusEl = document.getElementById('newsletter-send-status');
+            
+            const articleId = selectEl.value;
+            
+            if (!articleId) {
+                alert('Prosím vyberte článek pro odeslání.');
+                return;
+            }
+            
+            // Kontrola konfigurace email služby
+            if (!emailService || !emailService.isConfigured()) {
+                alert('Email služba není nakonfigurována!\n\nPřidejte Resend API klíč do config.js a obnovte stránku.');
+                return;
+            }
+            
+            // Potvrzení odeslání
+            if (!confirm('Opravdu chcete odeslat newsletter všem odběratelům?\n\nTato akce je nevratná!')) {
+                return;
+            }
+            
+            const originalText = sendBtn.textContent;
+            
+            try {
+                sendBtn.disabled = true;
+                sendBtn.textContent = 'Odesílám...';
+                statusEl.textContent = 'Načítání článku a odběratelů...';
+                statusEl.style.color = '#666';
+                
+                // Načtení článku a odběratelů
+                const [article, subscribers] = await Promise.all([
+                    window.articleDB.getArticleById(articleId),
+                    window.articleDB.getActiveSubscribers()
+                ]);
+                
+                if (!article) {
+                    throw new Error('Článek nebyl nalezen');
+                }
+                
+                if (!subscribers || subscribers.length === 0) {
+                    throw new Error('Žádní aktivní odběratelé');
+                }
+                
+                // Odeslání pomocí Resend služby
+                const results = await emailService.sendNewsletter(
+                    article, 
+                    subscribers, 
+                    newsletterGenerator,
+                    (current, total, email) => {
+                        statusEl.textContent = `Odesílání emailu ${current}/${total} (${email})...`;
+                    }
+                );
+                
+                // Zaznamenání odeslaného emailu
+                const subject = newsletterGenerator.generateSubject(article);
+                await window.articleDB.logNewsletterEmail(article.id, subject, results.sent);
+                
+                // Obnovení statistik
+                await loadNewsletterStats();
+                
+                // Zobrazení výsledků
+                if (results.sent > 0) {
+                    statusEl.textContent = `Newsletter odeslán ${results.sent}/${subscribers.length} odběratelům!`;
+                    statusEl.style.color = '#27ae60';
+                    
+                    let message = `Newsletter byl úspěšně odeslán ${results.sent} z ${subscribers.length} odběratelů!`;
+                    
+                    if (results.failed > 0) {
+                        message += `\n\nNeúspěšných: ${results.failed}`;
+                        console.error('Chyby při odesílání:', results.errors);
+                    }
+                    
+                    alert(message);
+                } else {
+                    throw new Error('Žádné emaily nebyly odeslány');
+                }
+                
+            } catch (error) {
+                console.error('Chyba při odesílání newsletteru:', error);
+                statusEl.textContent = `Chyba: ${error.message}`;
+                statusEl.style.color = '#e74c3c';
+                alert('Chyba při odesílání newsletteru: ' + error.message);
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = originalText;
+                
+                // Vyčištění statusu po 15 sekundách
+                setTimeout(() => {
+                    statusEl.textContent = '';
+                    statusEl.style.color = '#666';
+                }, 15000);
+            }
+        }
+
+        // Přidání odběratele z admin rozhraní
+        async function addSubscriberFromAdmin() {
+            const emailInput = document.getElementById('add-subscriber-email');
+            const messageEl = document.getElementById('add-subscriber-message');
+            
+            const email = emailInput.value.trim();
+            
+            if (!email) {
+                showMessage(messageEl, 'Zadejte prosím email adresu.', 'error');
+                return;
+            }
+            
+            // Validace emailu
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                showMessage(messageEl, 'Zadejte prosím platný email.', 'error');
+                return;
+            }
+            
+            try {
+                const result = await window.articleDB.addSubscriberAdmin(email);
+                
+                if (result.success) {
+                    showMessage(messageEl, `Email ${email} byl úspěšně přidán k odběru.`, 'success');
+                    emailInput.value = '';
+                    
+                    // Obnovení statistik a seznamu
+                    await loadNewsletterStats();
+                    if (document.getElementById('subscribers-list').style.display === 'block') {
+                        await loadAllSubscribers();
+                    }
+                } else {
+                    if (result.error.includes('duplicate key')) {
+                        showMessage(messageEl, 'Tento email je již přihlášen k odběru.', 'error');
+                    } else {
+                        showMessage(messageEl, `Chyba při přidávání: ${result.error}`, 'error');
+                    }
+                }
+            } catch (error) {
+                console.error('Chyba při přidávání odběratele:', error);
+                showMessage(messageEl, 'Došlo k neočekávané chybě.', 'error');
+            }
+        }
+
+        // Přepínání zobrazení seznamu odběratelů
+        async function toggleSubscribersList() {
+            const listEl = document.getElementById('subscribers-list');
+            const btnEl = document.getElementById('toggle-subscribers-btn');
+            
+            if (listEl.style.display === 'none') {
+                listEl.style.display = 'block';
+                btnEl.textContent = 'Skrýt seznam';
+                await loadAllSubscribers();
+            } else {
+                listEl.style.display = 'none';
+                btnEl.textContent = 'Zobrazit seznam';
+            }
+        }
+
+        // Načtení všech odběratelů
+        async function loadAllSubscribers() {
+            const loadingEl = document.getElementById('subscribers-loading');
+            const contentEl = document.getElementById('subscribers-content');
+            
+            loadingEl.style.display = 'block';
+            contentEl.style.display = 'none';
+            
+            try {
+                const subscribers = await window.articleDB.getAllSubscribers();
+                
+                if (subscribers && subscribers.length > 0) {
+                    const subscribersList = subscribers.map(subscriber => {
+                        const date = new Date(subscriber.subscribed_at).toLocaleDateString('cs-CZ');
+                        
+                        // Status badge s ověřením
+                        let statusBadge = '';
+                        if (!subscriber.verified) {
+                            statusBadge = '<span style="background: #fff3cd; color: #856404; padding: 2px 6px; border-radius: 3px; font-size: 0.8rem;">Čeká na ověření</span>';
+                        } else if (subscriber.is_active) {
+                            statusBadge = '<span style="background: #d4edda; color: #155724; padding: 2px 6px; border-radius: 3px; font-size: 0.8rem;">Aktivní</span>';
+                        } else {
+                            statusBadge = '<span style="background: #f8d7da; color: #721c24; padding: 2px 6px; border-radius: 3px; font-size: 0.8rem;">Neaktivní</span>';
+                        }
+                        
+                        return `
+                            <div style="padding: 0.75rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <strong>${subscriber.email}</strong><br>
+                                    <small style="color: #666;">Přihlášen: ${date}</small>
+                                    ${!subscriber.verified ? '<br><small style="color: #856404;">⚠️ Neověřený email</small>' : ''}
+                                </div>
+                                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                    ${statusBadge}
+                                    <button onclick="toggleSubscriberStatus(${subscriber.id}, ${!subscriber.is_active})" 
+                                            class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; background: #6c757d;"
+                                            ${!subscriber.verified ? 'disabled title="Nelze aktivovat neověřený email"' : ''}>
+                                        ${subscriber.is_active ? 'Deaktivovat' : 'Aktivovat'}
+                                    </button>
+                                    <button onclick="deleteSubscriber(${subscriber.id}, '${subscriber.email}')" 
+                                            class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; background: #dc3545;">
+                                        Smazat
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    contentEl.innerHTML = `
+                        <div style="margin-bottom: 1rem; font-size: 0.9rem; color: #666;">
+                            Celkem ${subscribers.length} odběratelů:
+                        </div>
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            ${subscribersList}
+                        </div>
+                    `;
+                } else {
+                    contentEl.innerHTML = '<div style="text-align: center; color: #666; padding: 2rem;">Žádní odběratelé</div>';
+                }
+                
+                loadingEl.style.display = 'none';
+                contentEl.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Chyba při načítání odběratelů:', error);
+                contentEl.innerHTML = '<div style="text-align: center; color: #e74c3c; padding: 2rem;">Chyba při načítání seznamu</div>';
+                loadingEl.style.display = 'none';
+                contentEl.style.display = 'block';
+            }
+        }
+
+        // Aktivace/deaktivace odběratele
+        async function toggleSubscriberStatus(subscriberId, newStatus) {
+            try {
+                const result = await window.articleDB.toggleSubscriber(subscriberId, newStatus);
+                
+                if (result.success) {
+                    await loadAllSubscribers();
+                    await loadNewsletterStats();
+                } else {
+                    alert('Chyba při změně stavu: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Chyba při změně stavu odběratele:', error);
+                alert('Došlo k neočekávané chybě.');
+            }
+        }
+
+        // Smazání odběratele
+        async function deleteSubscriber(subscriberId, email) {
+            if (!confirm(`Opravdu chcete smazat odběratele "${email}"?\n\nTato akce je nevratná!`)) {
+                return;
+            }
+            
+            try {
+                const result = await window.articleDB.deleteSubscriber(subscriberId);
+                
+                if (result.success) {
+                    await loadAllSubscribers();
+                    await loadNewsletterStats();
+                    alert(`Odběratel ${email} byl úspěšně smazán.`);
+                } else {
+                    alert('Chyba při mazání: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Chyba při mazání odběratele:', error);
+                alert('Došlo k neočekávané chybě.');
+            }
+        }
+
+        // Pomocná funkce pro zobrazování zpráv
+        function showMessage(element, message, type) {
+            element.textContent = message;
+            element.className = type === 'success' ? 'success' : 'error';
+            element.style.display = 'block';
+            element.style.color = type === 'success' ? '#155724' : '#721c24';
+            element.style.backgroundColor = type === 'success' ? '#d4edda' : '#f8d7da';
+            element.style.border = type === 'success' ? '1px solid #c3e6cb' : '1px solid #f5c6cb';
+            element.style.padding = '0.5rem';
+            element.style.borderRadius = '4px';
+            
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 5000);
         }
 
     </script>
