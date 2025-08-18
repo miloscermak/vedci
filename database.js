@@ -678,6 +678,165 @@ class ArticleDatabase {
             return { success: false, error: error.message };
         }
     }
+    // ========== FUNKCE PRO GLOSY ==========
+
+    // Získat aktivní glosu
+    async getActiveGlosa() {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return null;
+            }
+
+            const { data, error } = await this.supabase
+                .from('glosas')
+                .select('*')
+                .eq('is_active', true)
+                .single();
+            
+            if (error && error.code !== 'PGRST116') { // Ignorovat "no rows" error
+                console.error('Error fetching active glosa:', error);
+                return null;
+            }
+            return data;
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return null;
+        }
+    }
+
+    // Získat všechny glosy
+    async getAllGlosas() {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return [];
+            }
+
+            const { data, error } = await this.supabase
+                .from('glosas')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (error) {
+                console.error('Error fetching glosas:', error);
+                return [];
+            }
+            return data || [];
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return [];
+        }
+    }
+
+    // Vytvořit novou glosu
+    async createGlosa(glosaData) {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return { success: false, error: 'Supabase klient není inicializován' };
+            }
+
+            // Spočítat počet slov z plain text verze
+            const wordCount = glosaData.content_plain ? 
+                glosaData.content_plain.trim().split(/\s+/).length : 0;
+            
+            const { data, error } = await this.supabase
+                .from('glosas')
+                .insert([{
+                    ...glosaData,
+                    word_count: wordCount
+                }])
+                .select()
+                .single();
+            
+            if (error) {
+                console.error('Error creating glosa:', error);
+                throw error;
+            }
+            return data;
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            throw error;
+        }
+    }
+
+    // Aktualizovat glosu
+    async updateGlosa(id, updates) {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                throw new Error('Supabase klient není inicializován');
+            }
+
+            // Pokud se aktualizuje obsah, přepočítat počet slov
+            if (updates.content_plain) {
+                updates.word_count = updates.content_plain.trim().split(/\s+/).length;
+            }
+            
+            const { data, error } = await this.supabase
+                .from('glosas')
+                .update(updates)
+                .eq('id', id)
+                .select()
+                .single();
+            
+            if (error) {
+                console.error('Error updating glosa:', error);
+                throw error;
+            }
+            return data;
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            throw error;
+        }
+    }
+
+    // Smazat glosu
+    async deleteGlosa(id) {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                throw new Error('Supabase klient není inicializován');
+            }
+
+            const { error } = await this.supabase
+                .from('glosas')
+                .delete()
+                .eq('id', id);
+            
+            if (error) {
+                console.error('Error deleting glosa:', error);
+                throw error;
+            }
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            throw error;
+        }
+    }
+
+    // Nastavit glosu jako aktivní
+    async setActiveGlosa(id) {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                throw new Error('Supabase klient není inicializován');
+            }
+
+            const { error } = await this.supabase
+                .from('glosas')
+                .update({ is_active: true })
+                .eq('id', id);
+            
+            if (error) {
+                console.error('Error setting active glosa:', error);
+                throw error;
+            }
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            throw error;
+        }
+    }
 }
 
 // Vytvoření globální instance

@@ -58,6 +58,9 @@
                 </div>
             </article>
             
+            <!-- Kontejner pro glosu -->
+            <div id="glosa-container" style="display: none;"></div>
+            
             <section id="newsletter-signup" class="newsletter-signup">
                 <h3>Newsletter</h3>
                 <p>Přihlaste se k odběru a dostávejte nejnovější články přímo do emailu.</p>
@@ -153,6 +156,9 @@
                     
                     // Načtení a zobrazení souvisejících článků
                     await loadRelatedArticles(article.id);
+                    
+                    // Načtení a zobrazení glosy
+                    await loadGlosa();
                     
                     // Zobrazení článku
                     loadingEl.style.display = 'none';
@@ -357,6 +363,44 @@
                 }
             }
         });
+
+        // Funkce pro načítání glosy
+        async function loadGlosa() {
+            try {
+                const glosa = await window.articleDB.getActiveGlosa();
+                const glosaContainer = document.getElementById('glosa-container');
+                
+                if (glosa && glosaContainer) {
+                    const glosaHTML = `
+                        <div class="glosa-section">
+                            <div class="glosa-header">
+                                <span class="glosa-label">Glosa</span>
+                                <span class="glosa-date">
+                                    ${new Date(glosa.created_at).toLocaleDateString('cs-CZ', {
+                                        day: 'numeric',
+                                        month: 'long',
+                                        year: 'numeric'
+                                    })}
+                                </span>
+                            </div>
+                            <h2 class="glosa-title">${glosa.title}</h2>
+                            <div class="glosa-content">
+                                ${glosa.content}
+                            </div>
+                            <div class="glosa-author">
+                                — ${glosa.author}
+                            </div>
+                        </div>
+                    `;
+                    glosaContainer.innerHTML = glosaHTML;
+                    glosaContainer.style.display = 'block';
+                } else if (glosaContainer) {
+                    glosaContainer.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error loading glosa:', error);
+            }
+        }
     </script>
 </body>
 </html>
