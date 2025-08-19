@@ -22,38 +22,37 @@
 </head>
 <body>
     <header>
-        <div class="container">
-            <h1><a href="index.html" style="text-decoration: none; color: inherit;">Vědci zjistili</a></h1>
+        <div class="header-content">
+            <a href="index.html" class="site-title">Vědci zjistili</a>
             <nav>
-                <a href="index.html">Domů</a>
-                <a href="archiv.html">Archív</a>
+                <a href="index.html">Články</a>
+                <a href="archiv.html">Archiv</a>
                 <a href="about.html">O projektu</a>
             </nav>
         </div>
     </header>
 
-    <main>
-        <div class="container">
-            <h2 style="margin-bottom: 2rem; color: #2c3e50; font-weight: 300;">Archív článků</h2>
+    <main class="container">
+        <div class="archive-section">
+            <h2 class="section-title">Archív článků</h2>
             
-            <div id="loading" style="text-align: center; padding: 2rem; color: #666;">
+            <div id="loading" class="loading">
                 Načítání archívu...
             </div>
             
-            <div id="archive-list" class="archive-list" style="display: none;">
+            <div id="archive-list" class="archive-articles" style="display: none;">
                 <!-- Články se načtou dynamicky z databáze -->
             </div>
             
-            
-            <div id="no-articles" style="display: none; text-align: center; padding: 2rem; color: #666;">
+            <div id="no-articles" class="loading" style="display: none;">
                 Žádné články nejsou k dispozici.
             </div>
         </div>
     </main>
 
     <footer>
-        <div class="container">
-            <p>&copy; 2025 Vědci zjistili. Každý den něco nového.</p>
+        <div class="footer-content">
+            <p>&copy; 2025 Vědci zjistili. Projekt Miloše Čermáka.</p>
         </div>
     </footer>
 
@@ -78,16 +77,10 @@
                 
                 if (articles && articles.length > 0) {
                     const archiveHTML = articles.map(article => `
-                        <article class="archive-item">
-                            <time datetime="${window.articleDB.formatDatetime(article.date)}">
-                                ${window.articleDB.formatDate(article.date)}
-                            </time>
-                            <h3>
-                                <a href="index.html?clanek=${article.slug}">
-                                    ${article.title}
-                                </a>
-                            </h3>
-                            <p class="excerpt">${article.excerpt}</p>
+                        <article class="article-item">
+                            <h3><a href="index.html?clanek=${article.slug}">${article.title}</a></h3>
+                            <div class="meta">${window.articleDB.formatDate(article.date)}</div>
+                            ${article.excerpt ? `<p class="excerpt">${article.excerpt}</p>` : ''}
                         </article>
                     `).join('');
                     

@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vědci zjistili</title>
-    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-1VKMTJ7HFT"></script>
@@ -16,391 +18,75 @@
       gtag('config', 'G-1VKMTJ7HFT');
     </script>
     
+    <!-- Styly -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Config a Database -->
     <script src="config.js"></script>
-    <script>
-        // Fallback pro config.local.js pokud neexistuje online
-        if (!window.RESEND_CONFIG || window.RESEND_CONFIG.apiKey === 'PLACEHOLDER_API_KEY') {
-            console.warn('config.local.js nenalezen, API klíč bude načten z environment variables');
-            window.RESEND_CONFIG = {
-                apiKey: 'ENVIRONMENT_API_KEY', // Načte se z Netlify environment variables
-                fromEmail: 'newsletter@vedcizjistili.cz',
-                fromName: 'Vědci zjistili'
-            };
-        }
-    </script>
     <script src="database.js"></script>
-    <script src="newsletter-generator.js"></script>
 </head>
 <body>
     <header>
-        <div class="container">
-            <h1><a href="index.html" style="text-decoration: none; color: inherit;">Vědci zjistili</a></h1>
+        <div class="header-content">
+            <a href="index.html" class="site-title">Vědci zjistili</a>
             <nav>
-                <a href="index.html">Domů</a>
-                <a href="archiv.html">Archív</a>
+                <a href="index.html">Články</a>
+                <a href="archiv.html">Archiv</a>
                 <a href="about.html">O projektu</a>
             </nav>
         </div>
     </header>
-
-    <main>
-        <div class="container">
-            <div id="loading" style="text-align: center; padding: 2rem; color: #666;">
-                Načítání článku...
+    
+    <main class="container">
+        <!-- Hlavní článek s velkým obrázkem -->
+        <div id="featured-article-container" class="loading">
+            Načítání nejnovějšího článku...
+        </div>
+        
+        <!-- Glosa -->
+        <div id="glosa-container">
+            <!-- Dynamicky generováno -->
+        </div>
+        
+        <!-- Další 2 články s náhledy -->
+        <section id="articles-with-images" class="articles-with-images">
+            <!-- Dynamicky generováno -->
+        </section>
+        
+        <!-- Zbylé články jako jednoduchý seznam -->
+        <section class="articles-list">
+            <h2 class="section-title">Další články</h2>
+            <div id="simple-articles-list" class="loading">
+                Načítání článků...
             </div>
-            <article id="main-article" class="main-article" style="display: none;">
-                <header class="article-header">
-                    <time id="article-date" datetime=""></time>
-                    <h2 id="article-title"></h2>
-                </header>
-                <div id="article-content" class="article-content">
-                </div>
-            </article>
-            
-            <!-- Kontejner pro glosu -->
-            <div id="glosa-container" style="display: none;"></div>
-            
-            <section id="newsletter-signup" class="newsletter-signup">
-                <h3>Newsletter</h3>
-                <p>Přihlaste se k odběru a dostávejte nejnovější články přímo do emailu.</p>
-                <form id="newsletter-form" class="newsletter-form">
-                    <div class="newsletter-input-group">
-                        <input type="email" id="newsletter-email" placeholder="Váš email" required>
-                        <button type="submit" class="btn">Přihlásit se</button>
-                    </div>
-                </form>
-                <div id="newsletter-message" class="newsletter-message" style="display: none;"></div>
-            </section>
-            
-            <section id="related-articles" class="related-articles" style="display: none;">
-                <h3>Poslední články</h3>
-                <ul id="related-articles-list">
-                </ul>
-                <div class="archive-link">
-                    <a href="archiv.html">Více článků v archivu →</a>
-                </div>
-            </section>
-            
-            <div id="error-message" style="display: none; text-align: center; padding: 2rem; color: #e74c3c;">
-                Nepodařilo se načíst článek. Zkuste to později.
-            </div>
+        </section>
+        
+        <!-- Newsletter -->
+        <div class="newsletter-section" id="newsletter-signup">
+            <h3>Odebírejte newsletter</h3>
+            <p>Chcete, aby vám žádná studie neunikla? Pošleme vám anonci. Žádný spam, jen věda.</p>
+            <form class="newsletter-form" id="newsletter-form">
+                <input type="email" id="newsletter-email" placeholder="váš@email.cz" required>
+                <button type="submit">Přihlásit</button>
+            </form>
+            <div id="newsletter-message" class="newsletter-message" style="display: none;"></div>
+        </div>
+        
+        <!-- Archiv -->
+        <div class="archive-link">
+            <a href="archiv.html">Zobrazit všechny články →</a>
         </div>
     </main>
-
+    
     <footer>
-        <div class="container">
-            <p>&copy; 2025 Vědci zjistili. Každý den něco nového.</p>
+        <div class="footer-content">
+            <p>&copy; 2025 Vědci zjistili. Projekt Miloše Čermáka.</p>
         </div>
     </footer>
-
-    <script>
-        // Inicializace Supabase klienta
-        const { createClient } = supabase;
-        const supabaseClient = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
-        
-        // Inicializace databáze třídy
-        window.articleDB.init(supabaseClient);
-
-        // Načtení článku podle URL parametru nebo nejnovějšího článku
-        document.addEventListener('DOMContentLoaded', async function() {
-            // Kontrola newsletter nastavení (po načtení DOM)
-            checkNewsletterVisibility();
-            const loadingEl = document.getElementById('loading');
-            const articleEl = document.getElementById('main-article');
-            const errorEl = document.getElementById('error-message');
-
-            try {
-                let article = null;
-                
-                // Kontrola URL parametrů pro konkrétní článek
-                const urlParams = new URLSearchParams(window.location.search);
-                const articleSlug = urlParams.get('clanek');
-                
-                if (articleSlug) {
-                    // Načtení konkrétního článku podle slug
-                    article = await window.articleDB.getArticleBySlug(articleSlug);
-                    
-                    // Aktualizace title stránky
-                    if (article) {
-                        document.title = `${article.title} - Vědci zjistili`;
-                    }
-                } else {
-                    // Načtení nejnovějšího článku
-                    article = await window.articleDB.getLatestArticle();
-                }
-                
-                if (article) {
-                    // Naplnění článku daty z databáze
-                    document.getElementById('article-date').textContent = window.articleDB.formatDate(article.date);
-                    document.getElementById('article-date').setAttribute('datetime', window.articleDB.formatDatetime(article.date));
-                    document.getElementById('article-title').textContent = article.title;
-                    
-                    // Zobrazení obrázku pokud existuje
-                    let contentHTML = '';
-                    if (article.image_url) {
-                        contentHTML += `<img src="${article.image_url}" alt="${article.title}" class="article-image">`;
-                    }
-                    
-                    // Přidání obsahu článku (už je v HTML formátu z Quill editoru)
-                    contentHTML += article.content;
-                    
-                    // Přidání zdroje pokud existuje
-                    if (article.source_url && article.source_title) {
-                        contentHTML += `<div class="article-source">Zdroj: <a href="${article.source_url}" target="_blank" rel="noopener">${article.source_title}</a></div>`;
-                    } else if (article.source_url) {
-                        contentHTML += `<div class="article-source">Zdroj: <a href="${article.source_url}" target="_blank" rel="noopener">${article.source_url}</a></div>`;
-                    }
-                    
-                    document.getElementById('article-content').innerHTML = contentHTML;
-                    
-                    // Načtení a zobrazení souvisejících článků
-                    await loadRelatedArticles(article.id);
-                    
-                    // Načtení a zobrazení glosy
-                    await loadGlosa();
-                    
-                    // Zobrazení článku
-                    loadingEl.style.display = 'none';
-                    articleEl.style.display = 'block';
-                } else {
-                    // Žádný článek nenalezen
-                    loadingEl.style.display = 'none';
-                    errorEl.style.display = 'block';
-                    if (articleSlug) {
-                        errorEl.textContent = 'Článek nebyl nalezen.';
-                    } else {
-                        errorEl.textContent = 'Žádné články nejsou k dispozici.';
-                    }
-                }
-            } catch (error) {
-                console.error('Chyba při načítání článku:', error);
-                loadingEl.style.display = 'none';
-                errorEl.style.display = 'block';
-            }
-        });
-        
-        // Funkce pro načtení souvisejících článků
-        async function loadRelatedArticles(currentArticleId) {
-            try {
-                const relatedArticles = await window.articleDB.getRecentArticles(10, currentArticleId);
-                const relatedSection = document.getElementById('related-articles');
-                const relatedList = document.getElementById('related-articles-list');
-                
-                if (relatedArticles && relatedArticles.length > 0) {
-                    relatedList.innerHTML = '';
-                    
-                    relatedArticles.forEach(article => {
-                        const listItem = document.createElement('li');
-                        const link = document.createElement('a');
-                        link.href = `index.html?clanek=${article.slug}`;
-                        
-                        // Formátování data do formátu DD/M/YY
-                        const articleDate = new Date(article.date);
-                        const day = articleDate.getDate();
-                        const month = articleDate.getMonth() + 1;
-                        const year = articleDate.getFullYear().toString().slice(-2);
-                        const formattedDate = `${day}/${month}/${year}`;
-                        
-                        link.textContent = `${article.title} (${formattedDate})`;
-                        listItem.appendChild(link);
-                        relatedList.appendChild(listItem);
-                    });
-                    
-                    relatedSection.style.display = 'block';
-                }
-            } catch (error) {
-                console.error('Chyba při načítání souvisejících článků:', error);
-            }
-        }
-        
-        // Newsletter funkcionalita
-        document.getElementById('newsletter-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const emailInput = document.getElementById('newsletter-email');
-            const messageDiv = document.getElementById('newsletter-message');
-            const submitBtn = this.querySelector('button[type="submit"]');
-            
-            const email = emailInput.value.trim();
-            
-            if (!email) {
-                showNewsletterMessage('Zadejte prosím váš email.', 'error');
-                return;
-            }
-            
-            // Validace emailu
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(email)) {
-                showNewsletterMessage('Zadejte prosím platný email.', 'error');
-                return;
-            }
-            
-            // Zobrazení loading stavu
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Přihlašování...';
-            
-            try {
-                // Pokus o vložení do databáze s ověřením
-                const result = await window.articleDB.addSubscriber(email);
-                
-                if (result.success) {
-                    // Odeslání ověřovacího emailu
-                    submitBtn.textContent = 'Odesílání ověřovacího emailu...';
-                    
-                    const sendResult = await sendVerificationEmail(email, result.verificationToken);
-                    
-                    if (sendResult.success) {
-                        showNewsletterMessage(
-                            'Děkujeme! Na váš email jsme poslali ověřovací odkaz. Kliknutím na něj dokončíte registraci.', 
-                            'success'
-                        );
-                        emailInput.value = '';
-                    } else {
-                        // Email se nepodařilo odeslat, ale registrace proběhla
-                        showNewsletterMessage(
-                            'Registrace proběhla, ale nepodařilo se odeslat ověřovací email. Kontaktujte nás prosím.', 
-                            'error'
-                        );
-                    }
-                } else {
-                    if (result.error.includes('duplicate key')) {
-                        showNewsletterMessage('Tento email je již přihlášen k odběru nebo čeká na ověření.', 'error');
-                    } else {
-                        console.error('Chyba při přihlašování:', result.error);
-                        showNewsletterMessage('Nepodařilo se přihlásit k odběru. Zkuste to později.', 'error');
-                    }
-                }
-            } catch (error) {
-                console.error('Chyba při přihlašování:', error);
-                showNewsletterMessage('Nepodařilo se přihlásit k odběru. Zkuste to později.', 'error');
-            }
-            
-            // Obnovení původního stavu tlačítka
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Přihlásit se';
-        });
-        
-        // Odeslání ověřovacího emailu přes Netlify Functions
-        async function sendVerificationEmail(email, verificationToken) {
-            try {
-                // Inicializace newsletter generatoru pro ověřovací email
-                const newsletterGen = new NewsletterGenerator();
-                await newsletterGen.loadVerificationTemplate();
-                
-                const emailHTML = newsletterGen.generateVerificationEmailHTML(email, verificationToken);
-                const emailText = newsletterGen.generateVerificationEmailText(email, verificationToken);
-                const subject = newsletterGen.generateVerificationSubject();
-                
-                // Volání Netlify Functions (API klíč je serverside)
-                const response = await fetch('/.netlify/functions/send-email', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        to: email,
-                        subject: subject,
-                        html: emailHTML,
-                        text: emailText
-                    })
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    console.error('Netlify Function error:', errorData);
-                    throw new Error(`Function error: ${response.status}`);
-                }
-                
-                const result = await response.json();
-                console.log('Email sent successfully:', result);
-                
-                return { success: true };
-                
-            } catch (error) {
-                console.error('Chyba při odesílání ověřovacího emailu:', error);
-                return { 
-                    success: false, 
-                    error: 'Nepodařilo se odeslat ověřovací email. Zkuste to později nebo nás kontaktujte.' 
-                };
-            }
-        }
-
-        function showNewsletterMessage(message, type) {
-            const messageDiv = document.getElementById('newsletter-message');
-            messageDiv.textContent = message;
-            messageDiv.className = `newsletter-message ${type}`;
-            messageDiv.style.display = 'block';
-            
-            // Schování zprávy po 8 sekundách (delší kvůli delší zprávě o ověření)
-            setTimeout(() => {
-                messageDiv.style.display = 'none';
-            }, 8000);
-        }
-        
-        // Kontrola viditelnosti newsletter sekce
-        function checkNewsletterVisibility() {
-            const newsletterSection = document.getElementById('newsletter-signup');
-            const isEnabled = localStorage.getItem('newsletter-enabled') !== 'false';
-            
-            if (isEnabled) {
-                newsletterSection.classList.remove('hidden');
-            } else {
-                newsletterSection.classList.add('hidden');
-            }
-        }
-        
-        // Poslouchání zpráv z admin okna
-        window.addEventListener('message', function(event) {
-            if (event.origin !== window.location.origin) return;
-            
-            if (event.data.type === 'newsletter-toggle') {
-                const newsletterSection = document.getElementById('newsletter-signup');
-                if (event.data.enabled) {
-                    newsletterSection.classList.remove('hidden');
-                } else {
-                    newsletterSection.classList.add('hidden');
-                }
-            }
-        });
-
-        // Funkce pro načítání glosy
-        async function loadGlosa() {
-            try {
-                const glosa = await window.articleDB.getActiveGlosa();
-                const glosaContainer = document.getElementById('glosa-container');
-                
-                if (glosa && glosaContainer) {
-                    const glosaHTML = `
-                        <div class="glosa-section">
-                            <div class="glosa-header">
-                                <span class="glosa-label">Glosa</span>
-                                <span class="glosa-date">
-                                    ${new Date(glosa.created_at).toLocaleDateString('cs-CZ', {
-                                        day: 'numeric',
-                                        month: 'long',
-                                        year: 'numeric'
-                                    })}
-                                </span>
-                            </div>
-                            <h2 class="glosa-title">${glosa.title}</h2>
-                            <div class="glosa-content">
-                                ${glosa.content}
-                            </div>
-                            <div class="glosa-author">
-                                — ${glosa.author}
-                            </div>
-                        </div>
-                    `;
-                    glosaContainer.innerHTML = glosaHTML;
-                    glosaContainer.style.display = 'block';
-                } else if (glosaContainer) {
-                    glosaContainer.style.display = 'none';
-                }
-            } catch (error) {
-                console.error('Error loading glosa:', error);
-            }
-        }
-    </script>
+    
+    <script src="homepage.js"></script>
 </body>
 </html>
