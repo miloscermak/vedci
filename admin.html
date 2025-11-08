@@ -636,11 +636,14 @@
 
         // Inicializace admin obsahu
         function initializeAdminContent() {
-            // Inicializace Supabase klienta
-            const { createClient } = supabase;
-            const supabaseClient = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
-            
-            // Inicializace databáze třídy
+            // Použití existujícího globálního Supabase klienta
+            // (už byl vytvořen v DOMContentLoaded)
+            if (!supabaseClient) {
+                console.error('Supabase klient není inicializován!');
+                return;
+            }
+
+            // Inicializace databáze třídy s existujícím klientem
             window.articleDB.init(supabaseClient);
             
             // Inicializace newsletter toggle
