@@ -8,11 +8,13 @@ const fetch = (() => {
   }
 })();
 
+const { requireAuth } = require('./auth-middleware');
+
 exports.handler = async (event, context) => {
   // Povolení CORS
   const headers = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   };
 
@@ -32,6 +34,17 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({ error: 'Method not allowed' }),
     };
   }
+
+  // AUTENTIZACE - vyžaduje přihlášení
+  const auth = await requireAuth(event);
+  if (!auth.authenticated) {
+    return {
+      ...auth.error,
+      headers
+    };
+  }
+
+  console.log('Authenticated user sending newsletter:', auth.user.email);
 
   try {
     const { emails } = JSON.parse(event.body);

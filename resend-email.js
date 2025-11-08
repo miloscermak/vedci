@@ -105,11 +105,18 @@ class ResendEmailService {
         console.log(`📦 Připravil jsem ${emails.length} emailů pro odeslání`);
 
         try {
+            // Získání access tokenu pro autentizaci
+            const accessToken = await window.authManager.getAccessToken();
+            if (!accessToken) {
+                throw new Error('Nejste přihlášen. Přihlaste se prosím znovu.');
+            }
+
             // Odeslání přes Netlify Functions (API klíč je serverside)
             const response = await fetch('/.netlify/functions/send-newsletter', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
                 },
                 body: JSON.stringify({
                     emails: emails

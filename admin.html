@@ -161,6 +161,7 @@
             };
         }
     </script>
+    <script src="auth.js"></script>
     <script src="database.js"></script>
     <script src="newsletter-generator.js"></script>
     <script src="resend-email.js"></script>
@@ -183,8 +184,8 @@
         <h2 style="text-align: center; margin-bottom: 2rem; color: #2c3e50;">Přihlášení do administrace</h2>
         <form id="login-form">
             <div style="margin-bottom: 1rem;">
-                <label for="username" style="display: block; margin-bottom: 0.5rem; color: #34495e; font-weight: 500;">Uživatelské jméno:</label>
-                <input type="text" id="username" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;">
+                <label for="username" style="display: block; margin-bottom: 0.5rem; color: #34495e; font-weight: 500;">Email:</label>
+                <input type="email" id="username" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;" placeholder="admin@vedcizjistili.cz">
             </div>
             <div style="margin-bottom: 1.5rem;">
                 <label for="password" style="display: block; margin-bottom: 0.5rem; color: #34495e; font-weight: 500;">Heslo:</label>
@@ -544,50 +545,80 @@
     </footer>
 
     <script>
-        // Přihlašovací údaje (v produkci by měly být bezpečněji uloženy)
-        const ADMIN_CREDENTIALS = {
-            username: 'milos',
-            password: 'vedci2025!'
-        };
+        // Inicializace Supabase klienta a auth manageru
+        let supabaseClient;
 
         // Kontrola přihlášení při načtení stránky
         document.addEventListener('DOMContentLoaded', function() {
+            // Inicializace Supabase
+            const { createClient } = supabase;
+            supabaseClient = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+
+            // Inicializace auth manageru
+            window.authManager.init(supabaseClient);
+
+            // Nastavení auth change listeneru
+            window.authManager.onAuthChange((event, session) => {
+                if (event === 'SIGNED_IN') {
+                    showAdminContent();
+                } else if (event === 'SIGNED_OUT') {
+                    showLoginForm();
+                }
+            });
+
+            // Kontrola současné session
             checkAuth();
-            
+
             // Event listener pro login formulář
             document.getElementById('login-form').addEventListener('submit', handleLogin);
         });
 
-        function checkAuth() {
-            const isLoggedIn = sessionStorage.getItem('adminLoggedIn') === 'true';
-            
-            if (isLoggedIn) {
+        async function checkAuth() {
+            const session = await window.authManager.checkSession();
+
+            if (session && session.user) {
                 showAdminContent();
             } else {
                 showLoginForm();
             }
         }
 
-        function handleLogin(e) {
+        async function handleLogin(e) {
             e.preventDefault();
-            
-            const username = document.getElementById('username').value;
+
+            const email = document.getElementById('username').value;
             const password = document.getElementById('password').value;
-            
-            if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
-                sessionStorage.setItem('adminLoggedIn', 'true');
-                showAdminContent();
+
+            // Zobrazení loading stavu
+            const submitButton = e.target.querySelector('button[type="submit"]');
+            const originalText = submitButton.textContent;
+            submitButton.disabled = true;
+            submitButton.textContent = 'Přihlašování...';
+
+            const result = await window.authManager.signIn(email, password);
+
+            if (result.success) {
+                // Auth manager automaticky zavolá showAdminContent() přes onAuthChange
+                console.log('Úspěšně přihlášen');
             } else {
-                document.getElementById('login-error').style.display = 'block';
+                // Zobrazení chybové zprávy
+                const errorDiv = document.getElementById('login-error');
+                errorDiv.textContent = result.error || 'Neplatné přihlašovací údaje';
+                errorDiv.style.display = 'block';
+
                 setTimeout(() => {
-                    document.getElementById('login-error').style.display = 'none';
-                }, 3000);
+                    errorDiv.style.display = 'none';
+                }, 5000);
+
+                // Reset tlačítka
+                submitButton.disabled = false;
+                submitButton.textContent = originalText;
             }
         }
 
-        function logout() {
-            sessionStorage.removeItem('adminLoggedIn');
-            showLoginForm();
+        async function logout() {
+            await window.authManager.signOut();
+            // showLoginForm() se zavolá automaticky přes onAuthChange
         }
 
         function showLoginForm() {
