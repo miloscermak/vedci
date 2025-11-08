@@ -391,7 +391,7 @@ class ArticleDatabase {
                 .from('newsletter_subscribers')
                 .select('email, unsubscribe_token')
                 .eq('is_active', true)
-                .eq('verified', true);
+                .eq('is_verified', true);
 
             if (error) {
                 console.error('Chyba při načítání subscriberů:', error);
@@ -419,9 +419,9 @@ class ArticleDatabase {
 
             const { data, error } = await this.supabase
                 .from('newsletter_subscribers')
-                .insert([{ 
+                .insert([{
                     email: email,
-                    verified: false,
+                    is_verified: false,
                     verification_token: verificationToken,
                     is_active: true
                 }])
@@ -576,12 +576,13 @@ class ArticleDatabase {
 
             const { data, error } = await this.supabase
                 .from('newsletter_subscribers')
-                .update({ 
-                    verified: true,
+                .update({
+                    is_verified: true,
+                    verified_at: new Date().toISOString(),
                     verification_token: null // Token už nepotřebujeme
                 })
                 .eq('verification_token', verificationToken)
-                .eq('verified', false) // Jen neověřené
+                .eq('is_verified', false) // Jen neověřené
                 .select();
 
             if (error) {
