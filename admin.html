@@ -853,7 +853,10 @@
             }
         }
 
-        // Generování draftu z AI (volá Netlify Function generate-draft)
+        // Generování draftu z AI.
+        // Volá Netlify Background Function (suffix -background), která vrací 202
+        // okamžitě a běží na pozadí. Klient pak pollnuje DB, dokud nový draft
+        // neodklikne. Bez background funkce by Netlify utnula spojení po 10 s.
         async function handleAiDraftSubmit(e) {
             e.preventDefault();
             const submitBtn = this.querySelector('button[type="submit"]');
@@ -873,10 +876,14 @@
             try {
                 submitBtn.disabled = true;
                 submitBtn.textContent = 'Generuji…';
-                statusEl.textContent = 'Posílám studii Claude API…';
+                statusEl.textContent = 'Spouštím generování na pozadí…';
                 statusEl.style.color = '#6b6b6b';
 
-                const response = await fetch('/.netlify/functions/generate-draft', {
+                // Baseline: nejvyšší ID draftu před voláním
+                const beforeDrafts = await window.articleDB.getAllDrafts();
+                const maxIdBefore = beforeDrafts.reduce((m, d) => Math.max(m, d.id || 0), 0);
+
+                const response = await fetch('/.netlify/functions/generate-draft-background', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -887,16 +894,43 @@
                     })
                 });
 
-                const result = await response.json();
-                if (!response.ok || !result.success) {
-                    throw new Error(result.error || `Function returned ${response.status}`);
+                // Background function vrací 202 bez body. Jakýkoli 4xx/5xx je problém.
+                if (response.status !== 202 && !response.ok) {
+                    let errMsg = `Function returned ${response.status}`;
+                    try {
+                        const result = await response.json();
+                        errMsg = result.error || errMsg;
+                    } catch (_) { /* response není JSON, drž generic */ }
+                    throw new Error(errMsg);
                 }
 
-                statusEl.textContent = `Hotovo. Draft ID ${result.draft_id} čeká na kontrolu níže.`;
-                statusEl.style.color = '#27ae60';
-                document.getElementById('ai-draft-form').reset();
-                document.getElementById('ai-draft-generate-image').checked = true;
-                await loadDrafts();
+                statusEl.textContent = 'AI píše a kreslí (typicky 30–90 s). Čekám na nový draft…';
+
+                // Polling: každých 5s podívat, zda se objevil nový draft.
+                // Max 3 minuty, pak rezignovat.
+                const maxAttempts = 36; // 36 × 5s = 180s
+                let attempts = 0;
+                let foundDraft = null;
+
+                while (attempts < maxAttempts && !foundDraft) {
+                    await new Promise(r => setTimeout(r, 5000));
+                    attempts++;
+                    const currentDrafts = await window.articleDB.getAllDrafts();
+                    const newDraft = currentDrafts.find(d => (d.id || 0) > maxIdBefore && d.generated_by === 'ai');
+                    if (newDraft) foundDraft = newDraft;
+                    statusEl.textContent = `AI píše… (${attempts * 5} s)`;
+                }
+
+                if (foundDraft) {
+                    statusEl.textContent = `Hotovo. Draft "${foundDraft.title}" čeká na kontrolu níže.`;
+                    statusEl.style.color = '#27ae60';
+                    document.getElementById('ai-draft-form').reset();
+                    document.getElementById('ai-draft-generate-image').checked = true;
+                    await loadDrafts();
+                } else {
+                    statusEl.textContent = 'Čekání vypršelo (3 min). Zkontroluj Netlify Functions logs — funkce možná spadla. Drafty se občas objeví i po vypršení polling, zkus stránku obnovit.';
+                    statusEl.style.color = '#e67e22';
+                }
             } catch (error) {
                 console.error('Chyba při generování draftu:', error);
                 statusEl.textContent = `Chyba: ${error.message}`;
@@ -904,7 +938,7 @@
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = originalText;
-                setTimeout(() => { statusEl.textContent = ''; }, 15000);
+                // Status nemažeme automaticky — nechť tam zůstane do dalšího odeslání
             }
         }
 
