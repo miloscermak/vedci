@@ -121,6 +121,7 @@ Po uložení env proměnných spusť redeploy (Deploys → Trigger deploy → De
 
 ## 8) Troubleshooting
 
+- **504 Gateway Timeout / „Inactivity Timeout" HTML**: řešeno přechodem na Netlify Background Function (suffix `-background.js`). Klient dostává 202 a polluje DB. Pokud se draft neobjeví do 3 minut, zkontroluj Netlify → Functions → `generate-draft-background` → Logs.
 - **„Missing env variable" 500** z Netlify: nezapomněl jsi přidat všechny čtyři proměnné a redeploy?
 - **Anthropic API 401**: zkontroluj klíč v env, ne v kódu.
 - **Anthropic API 400 (overloaded model)**: zkus přepnout `ANTHROPIC_MODEL` na `claude-sonnet-4-6`.
