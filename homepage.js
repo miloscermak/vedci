@@ -148,6 +148,7 @@ async function loadFeaturedArticle() {
         const { data: articles, error } = await window.supabaseClient
             .from('articles')
             .select('*')
+            .eq('status', 'published')
             .order('date', { ascending: false })
             .limit(1);
         
@@ -221,6 +222,7 @@ async function loadArticlesWithImages() {
         const { data: articles, error } = await window.supabaseClient
             .from('articles')
             .select('*')
+            .eq('status', 'published')
             .order('date', { ascending: false })
             .range(1, 2);  // Získat 2. a 3. článek
         
@@ -263,6 +265,7 @@ async function loadSimpleArticlesList() {
         const { data: articles, error } = await window.supabaseClient
             .from('articles')
             .select('*')
+            .eq('status', 'published')
             .order('date', { ascending: false })
             .range(3, 10);  // Získat 4. až 11. článek
         

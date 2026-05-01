@@ -11,6 +11,7 @@ class ArticleDatabase {
     }
 
     // Získání nejnovějšího článku pro hlavní stránku
+    // Vrací jen články se status = 'published'.
     async getLatestArticle() {
         try {
             if (!this.supabase) {
@@ -21,6 +22,7 @@ class ArticleDatabase {
             const { data, error } = await this.supabase
                 .from('articles')
                 .select('*')
+                .eq('status', 'published')
                 .order('date', { ascending: false })
                 .limit(1);
 
@@ -36,7 +38,8 @@ class ArticleDatabase {
         }
     }
 
-    // Získání všech článků pro archív (seřazené podle data)
+    // Získání všech publikovaných článků pro archív (seřazené podle data).
+    // Pro admin (sekce Drafty) použij getAllDrafts() nebo getAllArticlesIncludingDrafts().
     async getAllArticles() {
         try {
             if (!this.supabase) {
@@ -47,10 +50,62 @@ class ArticleDatabase {
             const { data, error } = await this.supabase
                 .from('articles')
                 .select('*')
+                .eq('status', 'published')
                 .order('date', { ascending: false });
 
             if (error) {
                 console.error('Chyba při načítání článků:', error);
+                return [];
+            }
+
+            return data || [];
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return [];
+        }
+    }
+
+    // Získání všech článků včetně draftů (pro admin přehled).
+    async getAllArticlesIncludingDrafts() {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return [];
+            }
+
+            const { data, error } = await this.supabase
+                .from('articles')
+                .select('*')
+                .order('updated_at', { ascending: false });
+
+            if (error) {
+                console.error('Chyba při načítání článků (vč. draftů):', error);
+                return [];
+            }
+
+            return data || [];
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return [];
+        }
+    }
+
+    // Získání draftů pro admin sekci „Rozpracované drafty".
+    async getAllDrafts() {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return [];
+            }
+
+            const { data, error } = await this.supabase
+                .from('articles')
+                .select('*')
+                .eq('status', 'draft')
+                .order('updated_at', { ascending: false });
+
+            if (error) {
+                console.error('Chyba při načítání draftů:', error);
                 return [];
             }
 
@@ -72,6 +127,7 @@ class ArticleDatabase {
             let query = this.supabase
                 .from('articles')
                 .select('id, title, slug, date, excerpt')
+                .eq('status', 'published')
                 .order('date', { ascending: false })
                 .limit(limit + (excludeId ? 1 : 0));
 
@@ -156,7 +212,9 @@ class ArticleDatabase {
         }
     }
 
-    // Přidání nového článku
+    // Přidání nového článku — ve výchozím stavu publikuje hned
+    // (zachovává původní chování staré formy „Přidat nový článek").
+    // Pokud chceš uložit jen draft, použij createDraft().
     async addArticle(articleData) {
         try {
             if (!this.supabase) {
@@ -165,6 +223,7 @@ class ArticleDatabase {
             }
 
             const slug = this.generateSlug(articleData.title);
+            const now = new Date().toISOString();
 
             const { data, error } = await this.supabase
                 .from('articles')
@@ -176,7 +235,10 @@ class ArticleDatabase {
                     slug: slug,
                     image_url: articleData.image_url || null,
                     source_url: articleData.source_url || null,
-                    source_title: articleData.source_title || null
+                    source_title: articleData.source_title || null,
+                    status: 'published',
+                    published_at: now,
+                    generated_by: articleData.generated_by || 'human'
                 }])
                 .select();
 
@@ -192,7 +254,8 @@ class ArticleDatabase {
         }
     }
 
-    // Aktualizace existujícího článku
+    // Aktualizace existujícího článku.
+    // Status nikdy nemění — k tomu slouží publishDraft() / unpublishArticle().
     async updateArticle(id, articleData) {
         try {
             if (!this.supabase) {
@@ -202,19 +265,29 @@ class ArticleDatabase {
 
             const slug = this.generateSlug(articleData.title);
 
+            const updatePayload = {
+                title: articleData.title,
+                content: articleData.content,
+                excerpt: articleData.excerpt,
+                date: articleData.date,
+                slug: slug,
+                image_url: articleData.image_url || null,
+                source_url: articleData.source_url || null,
+                source_title: articleData.source_title || null,
+                updated_at: new Date().toISOString()
+            };
+
+            // Volitelná pole — nastavíme jen pokud je voláno s nimi.
+            if (articleData.image_prompt !== undefined) {
+                updatePayload.image_prompt = articleData.image_prompt;
+            }
+            if (articleData.study_source !== undefined) {
+                updatePayload.study_source = articleData.study_source;
+            }
+
             const { data, error } = await this.supabase
                 .from('articles')
-                .update({
-                    title: articleData.title,
-                    content: articleData.content,
-                    excerpt: articleData.excerpt,
-                    date: articleData.date,
-                    slug: slug,
-                    image_url: articleData.image_url || null,
-                    source_url: articleData.source_url || null,
-                    source_title: articleData.source_title || null,
-                    updated_at: new Date().toISOString()
-                })
+                .update(updatePayload)
                 .eq('id', id)
                 .select();
 
@@ -273,7 +346,7 @@ class ArticleDatabase {
         return date.toISOString().split('T')[0];
     }
 
-    // Získání článku podle slug
+    // Získání článku podle slug (jen publikované — používá veřejná URL).
     async getArticleBySlug(slug) {
         try {
             if (!this.supabase) {
@@ -285,6 +358,7 @@ class ArticleDatabase {
                 .from('articles')
                 .select('*')
                 .eq('slug', slug)
+                .eq('status', 'published')
                 .single();
 
             if (error) {
@@ -299,28 +373,134 @@ class ArticleDatabase {
         }
     }
 
-    // Generování URL-friendly slug z titulku
+    // Generování URL-friendly slug z titulku.
+    // Pozn.: dříve chyběla písmena ě, Ě a další velké varianty —
+    //        kvůli tomu vznikaly slugy jako „v-di" místo „vedi".
     generateSlug(title) {
         return title
             .toLowerCase()
-            .replace(/[áàäâ]/g, 'a')
-            .replace(/[éèëê]/g, 'e')
-            .replace(/[íìïî]/g, 'i')
-            .replace(/[óòöô]/g, 'o')
-            .replace(/[úùüû]/g, 'u')
-            .replace(/[ýÿ]/g, 'y')
-            .replace(/[ň]/g, 'n')
+            // Diakritika přes normalizaci (zachytí i kombinované znaky).
+            .normalize('NFD')
+            .replace(/[̀-ͯ]/g, '')
+            // Pojistka na české znaky, které by normalizace mohla minout.
+            .replace(/[ě]/g, 'e')
+            .replace(/[ů]/g, 'u')
             .replace(/[š]/g, 's')
             .replace(/[č]/g, 'c')
             .replace(/[ř]/g, 'r')
             .replace(/[ž]/g, 'z')
             .replace(/[ť]/g, 't')
             .replace(/[ď]/g, 'd')
-            .replace(/[ů]/g, 'u')
+            .replace(/[ň]/g, 'n')
             .replace(/[^a-z0-9]/g, '-')
             .replace(/-+/g, '-')
             .replace(/^-|-$/g, '')
             .substring(0, 60);
+    }
+
+    // ========== DRAFT API ==========
+
+    // Vytvoření draftu — používá Cowork i Netlify Function generate-draft.
+    // articleData musí obsahovat title, content, excerpt; ostatní jsou volitelné.
+    async createDraft(articleData) {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return { success: false, error: 'Supabase klient není inicializován' };
+            }
+
+            const slug = articleData.slug || this.generateSlug(articleData.title);
+            const today = new Date().toISOString().split('T')[0];
+
+            const payload = {
+                title: articleData.title,
+                content: articleData.content,
+                excerpt: articleData.excerpt,
+                date: articleData.date || today,
+                slug: slug,
+                image_url: articleData.image_url || null,
+                source_url: articleData.source_url || null,
+                source_title: articleData.source_title || null,
+                image_prompt: articleData.image_prompt || null,
+                study_source: articleData.study_source || null,
+                generated_by: articleData.generated_by || 'cowork',
+                status: 'draft'
+            };
+
+            const { data, error } = await this.supabase
+                .from('articles')
+                .insert([payload])
+                .select();
+
+            if (error) {
+                console.error('Chyba při vytváření draftu:', error);
+                return { success: false, error: error.message };
+            }
+
+            return { success: true, data: data[0] };
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // Publikace draftu — nastaví status = 'published' a published_at = now.
+    async publishDraft(id) {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return { success: false, error: 'Supabase klient není inicializován' };
+            }
+
+            const { data, error } = await this.supabase
+                .from('articles')
+                .update({
+                    status: 'published',
+                    published_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', id)
+                .select();
+
+            if (error) {
+                console.error('Chyba při publikaci draftu:', error);
+                return { success: false, error: error.message };
+            }
+
+            return { success: true, data: data[0] };
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // Vrátí publikovaný článek zpět do draftu (pro případ, že by editor chtěl stáhnout).
+    async unpublishArticle(id) {
+        try {
+            if (!this.supabase) {
+                console.error('Supabase klient není inicializován');
+                return { success: false, error: 'Supabase klient není inicializován' };
+            }
+
+            const { data, error } = await this.supabase
+                .from('articles')
+                .update({
+                    status: 'draft',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', id)
+                .select();
+
+            if (error) {
+                console.error('Chyba při převodu článku do draftu:', error);
+                return { success: false, error: error.message };
+            }
+
+            return { success: true, data: data[0] };
+        } catch (error) {
+            console.error('Chyba při komunikaci s databází:', error);
+            return { success: false, error: error.message };
+        }
     }
 
     // Získání obsahu statické stránky podle klíče

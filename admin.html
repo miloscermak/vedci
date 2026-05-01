@@ -517,20 +517,75 @@
                 </div>
             </div>
 
+            <!-- ============= DRAFTY ============= -->
+            <div class="admin-form" style="margin-top: 2rem;">
+                <h3 style="margin-bottom: 0.5rem; color: #2c3e50; font-weight: 400;">Rozpracované drafty</h3>
+                <p style="margin-bottom: 1.5rem; color: #6b6b6b; font-size: 0.95rem;">
+                    Drafty čekají na lidskou kontrolu, než půjdou na web. Vygeneruj nový pomocí formuláře níže, nebo Cowork zapíše draft z konverzace přímo do databáze.
+                </p>
+
+                <!-- Formulář: Nový draft z AI -->
+                <div style="background: #f8f9fa; padding: 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid #e5e5e5;">
+                    <h4 style="color: #2c3e50; margin-bottom: 0.75rem;">Vygenerovat nový draft z AI</h4>
+                    <p style="color: #6b6b6b; font-size: 0.9rem; margin-bottom: 1rem;">
+                        Vlož URL studie nebo její text. AI vyrobí strukturovaný popularizační článek + obrázek a uloží jako draft. Editor jej pak v přehledu níže projde a publikuje.
+                    </p>
+                    <form id="ai-draft-form">
+                        <div class="form-group">
+                            <label for="ai-draft-url">URL studie (volitelné):</label>
+                            <input type="url" id="ai-draft-url" placeholder="https://...">
+                        </div>
+                        <div class="form-group">
+                            <label for="ai-draft-source-title">Název zdroje (volitelné):</label>
+                            <input type="text" id="ai-draft-source-title" placeholder="např. Nature, Science…">
+                        </div>
+                        <div class="form-group">
+                            <label for="ai-draft-text">Text studie / abstrakt (volitelné, ale doporučené):</label>
+                            <textarea id="ai-draft-text" rows="8" placeholder="Vlož abstrakt nebo plný text studie. Čím více kontextu, tím přesnější článek."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="ai-draft-generate-image" checked>
+                                Vygenerovat zároveň ilustrační obrázek (vyžaduje OPENAI_API_KEY v Netlify env)
+                            </label>
+                        </div>
+                        <div style="display: flex; gap: 1rem; align-items: center;">
+                            <button type="submit" class="btn">Vygenerovat draft</button>
+                            <span id="ai-draft-status" style="color: #6b6b6b; font-size: 0.9rem;"></span>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Seznam draftů -->
+                <div id="drafts-loading" style="text-align: center; padding: 1.5rem; color: #666;">
+                    Načítání draftů...
+                </div>
+                <div id="drafts-list" style="margin-top: 1rem; display: none;">
+                    <h4 style="color: #2c3e50; margin-bottom: 1rem;">Drafty čekající na publikaci:</h4>
+                    <ul id="drafts-container" style="list-style: none; padding: 0;">
+                        <!-- Drafty se načtou dynamicky -->
+                    </ul>
+                </div>
+                <div id="no-drafts" style="display: none; text-align: center; padding: 1.5rem; color: #666;">
+                    Žádné drafty. Vygeneruj nový výše nebo požádej Cowork.
+                </div>
+            </div>
+
+            <!-- ============= PUBLIKOVANÉ ČLÁNKY ============= -->
             <div class="admin-form" style="margin-top: 2rem;">
                 <h3 style="margin-bottom: 1.5rem; color: #2c3e50; font-weight: 400;">Správa existujících článků</h3>
-                
+
                 <div id="loading-articles" style="text-align: center; padding: 1.5rem; color: #666;">
                     Načítání článků...
                 </div>
-                
+
                 <div id="articles-list" style="margin-top: 1.5rem; display: none;">
                     <h4 style="color: #2c3e50; margin-bottom: 1rem;">Aktuálně publikované články:</h4>
                     <ul id="articles-container" style="list-style: none; padding: 0;">
                         <!-- Články se načtou dynamicky -->
                     </ul>
                 </div>
-                
+
                 <div id="no-articles" style="display: none; text-align: center; padding: 1.5rem; color: #666;">
                     Žádné články nejsou k dispozici.
                 </div>
@@ -736,18 +791,155 @@
                 document.getElementById('article-form').addEventListener('submit', handleFormSubmit);
                 document.getElementById('edit-article-form').addEventListener('submit', handleEditFormSubmit);
                 document.getElementById('about-page-form').addEventListener('submit', handleAboutPageSubmit);
+
+                // Draft pipeline formulář
+                document.getElementById('ai-draft-form').addEventListener('submit', handleAiDraftSubmit);
             }
 
             loadArticles();
+            loadDrafts();
             loadAboutPage();
             loadNewsletterData();
-            
+
             // Inicializace glos
             initGlosaEditor();
             loadGlosas();
-            
+
             // Nastavení dnešního data jako výchozí
             document.getElementById('article-date').valueAsDate = new Date();
+        }
+
+        // ============= DRAFT PIPELINE =============
+
+        // Načtení draftů
+        async function loadDrafts() {
+            const loadingEl = document.getElementById('drafts-loading');
+            const listEl = document.getElementById('drafts-list');
+            const noEl = document.getElementById('no-drafts');
+            const containerEl = document.getElementById('drafts-container');
+
+            try {
+                const drafts = await window.articleDB.getAllDrafts();
+                loadingEl.style.display = 'none';
+
+                if (drafts && drafts.length > 0) {
+                    containerEl.innerHTML = drafts.map(d => {
+                        const updated = d.updated_at ? new Date(d.updated_at).toLocaleString('cs-CZ') : '';
+                        const generatedBy = d.generated_by || 'human';
+                        const badge = generatedBy === 'ai'
+                            ? '<span style="background: #e7f5ff; color: #1864ab; padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; margin-left: 0.5rem;">AI</span>'
+                            : (generatedBy === 'cowork'
+                                ? '<span style="background: #fff3bf; color: #5c4400; padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; margin-left: 0.5rem;">Cowork</span>'
+                                : '');
+                        const titleSafe = (d.title || '').replace(/'/g, "\\'");
+                        return `
+                            <li style="padding: 0.75rem 0; border-bottom: 1px solid #eee;">
+                                <div style="display: flex; justify-content: space-between; align-items: start; gap: 1rem;">
+                                    <div style="flex: 1;">
+                                        <strong>${d.title || '(bez názvu)'} ${badge}</strong>
+                                        <div style="color: #6b6b6b; font-size: 0.85rem; margin-top: 0.25rem;">
+                                            ${d.excerpt ? d.excerpt.substring(0, 140) + (d.excerpt.length > 140 ? '…' : '') : ''}
+                                        </div>
+                                        <div style="color: #999; font-size: 0.8rem; margin-top: 0.25rem;">
+                                            Aktualizováno: ${updated}${d.image_url ? ' · obrázek ✓' : ' · obrázek chybí'}
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; gap: 0.5rem; flex-shrink: 0;">
+                                        <button class="btn" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;" onclick="editArticle(${d.id})">Upravit</button>
+                                        <button class="btn btn-success" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;" onclick="publishDraftFromAdmin(${d.id}, '${titleSafe}')">Publikovat</button>
+                                        <button class="btn btn-danger" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;" onclick="deleteArticle(${d.id}, '${titleSafe}')">Smazat</button>
+                                    </div>
+                                </div>
+                            </li>
+                        `;
+                    }).join('');
+                    listEl.style.display = 'block';
+                    noEl.style.display = 'none';
+                } else {
+                    listEl.style.display = 'none';
+                    noEl.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Chyba při načítání draftů:', error);
+                loadingEl.style.display = 'none';
+                noEl.style.display = 'block';
+                noEl.textContent = 'Chyba při načítání draftů.';
+            }
+        }
+
+        // Publikace draftu
+        async function publishDraftFromAdmin(id, title) {
+            if (!confirm(`Opravdu publikovat draft "${title}"? Po publikaci bude veřejně dostupný.`)) {
+                return;
+            }
+            try {
+                const result = await window.articleDB.publishDraft(id);
+                if (result.success) {
+                    alert('Draft byl publikován.');
+                    await loadDrafts();
+                    await loadArticles();
+                } else {
+                    alert('Chyba při publikaci: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Chyba při publikaci draftu:', error);
+                alert('Došlo k chybě při publikaci draftu.');
+            }
+        }
+
+        // Generování draftu z AI (volá Netlify Function generate-draft)
+        async function handleAiDraftSubmit(e) {
+            e.preventDefault();
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            const statusEl = document.getElementById('ai-draft-status');
+
+            const url = document.getElementById('ai-draft-url').value.trim();
+            const sourceTitle = document.getElementById('ai-draft-source-title').value.trim();
+            const text = document.getElementById('ai-draft-text').value.trim();
+            const generateImage = document.getElementById('ai-draft-generate-image').checked;
+
+            if (!url && !text) {
+                alert('Vyplň prosím alespoň URL nebo text studie.');
+                return;
+            }
+
+            try {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Generuji…';
+                statusEl.textContent = 'Posílám studii Claude API…';
+                statusEl.style.color = '#6b6b6b';
+
+                const response = await fetch('/.netlify/functions/generate-draft', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        source_url: url || null,
+                        source_title: sourceTitle || null,
+                        study_text: text || null,
+                        generate_image: generateImage
+                    })
+                });
+
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || `Function returned ${response.status}`);
+                }
+
+                statusEl.textContent = `Hotovo. Draft ID ${result.draft_id} čeká na kontrolu níže.`;
+                statusEl.style.color = '#27ae60';
+                document.getElementById('ai-draft-form').reset();
+                document.getElementById('ai-draft-generate-image').checked = true;
+                await loadDrafts();
+            } catch (error) {
+                console.error('Chyba při generování draftu:', error);
+                statusEl.textContent = `Chyba: ${error.message}`;
+                statusEl.style.color = '#e74c3c';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+                setTimeout(() => { statusEl.textContent = ''; }, 15000);
+            }
         }
 
         // Funkce pro zpracování formuláře
