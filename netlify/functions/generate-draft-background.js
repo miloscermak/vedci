@@ -24,26 +24,62 @@ const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-4-6';
 
 const SYSTEM_PROMPT = `Jsi popularizátor vědy. Píšeš pro web vedcizjistili.cz, který transformuje vědecké studie do přístupných intelektuálně provokativních článků pro obecné publikum.
 
-VÝSTUP MUSÍ BÝT VÝHRADNĚ JEDEN VALIDNÍ JSON OBJEKT (bez markdownových bloků, bez komentářů) s těmito klíči:
-{
-  "title": "Český titulek článku, max. 80 znaků, bez úvozovek na začátku/konci",
-  "excerpt": "Český perex pro archív, 2-3 věty, max. 350 znaků",
-  "content_html": "Tělo článku jako HTML pro Quill editor. Používej <p>, <h2>, <strong>, <em>, <a href>. Nepoužívej <h1> ani <ul>/<ol>.",
-  "image_prompt": "Anglický prompt pro DALL·E / OpenAI Images. Editorial minimalist, 1.91:1 aspect ratio, no text in image, restrained linework, New Yorker editorial style.",
-  "image_alt": "Český alt text pro ilustraci, 1 věta",
-  "source_title": "Název časopisu/zdroje (např. Nature, Science, ICS)",
-  "source_url": "URL na studii"
-}
+VŽDY ZAVOLEJ TOOL save_article_draft a předej do něj kompletní strukturovaný článek. Nikdy nepiš odpověď v plain textu, vždy jen jako tool call.
 
-STRUKTURA TĚLA (content_html), 600-900 slov, přesně v tomto pořadí:
-1. Úvodní odstavec — kdo, kde, kdy + hlavní zjištění
+STRUKTURA POLE content_html (HTML pro Quill editor), 600-900 slov, přesně v tomto pořadí:
+1. Úvodní odstavec — kdo, kde, kdy + hlavní zjištění (autoři, instituce, rok)
 2. <h2>Jak výzkum probíhal</h2> — metoda a velikost vzorku, 1-2 odstavce
-3. <h2>Klíčová zjištění</h2> — pět odstavců, každý začíná <strong>1. ...</strong>, <strong>2. ...</strong> atd.
+3. <h2>Klíčová zjištění</h2> — pět odstavců, každý začíná <strong>1. Krátký nadpis bodu.</strong> ...
 4. <h2>Pochyby nad výsledky</h2> — 1 až 3 odstavce, každý začíná <strong>Krátký nadpis pochyby.</strong>
 5. <h2>Originální nadpis k out-of-the-box analogii</h2> — 1-2 odstavce s metaforou nebo analogií
 6. <h2>Shrnutí</h2> — jedna věta destilující podstatu
 
-STYL: intelektuálně provokativní, ale přístupný; konkrétní čísla z metodologie; bez superlativů a klišé; minimum cizích slov; srozumitelnost pro středoškoláka. Nikdy nevkládej do textu sám sebe (žádné „v tomto článku").`;
+POVOLENÉ HTML TAGY v content_html: <p>, <h2>, <strong>, <em>, <a href="...">. NEPOUŽÍVEJ <h1>, <ul>, <ol>, <div>, <span>, <br>, ani jiné značky.
+
+STYL: intelektuálně provokativní, ale přístupný; konkrétní čísla z metodologie; bez superlativů a klišé; minimum cizích slov; srozumitelnost pro středoškoláka. Nikdy nevkládej do textu sám sebe (žádné „v tomto článku").
+
+POLE image_prompt: anglický prompt pro DALL·E / OpenAI Images. Editorial minimalist, 1.91:1 aspect ratio, no text in image, restrained linework, New Yorker editorial style.`;
+
+// Tool schema pro Anthropic Tool Use — API garantuje, že input do toolu bude vždy validní JSON,
+// takže nepotřebujeme parsovat plain-text výstup a řešit neeskapované uvozovky uvnitř HTML.
+const ARTICLE_TOOL = {
+  name: 'save_article_draft',
+  description: 'Uloží strukturovaný popularizační článek pro web vedcizjistili.cz. Vždy zavolej s kompletními daty.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      title: {
+        type: 'string',
+        description: 'Český titulek článku. Max. 80 znaků. Bez úvozovek na začátku/konci.'
+      },
+      excerpt: {
+        type: 'string',
+        description: 'Český perex pro archív, 2-3 věty, max. 350 znaků.'
+      },
+      content_html: {
+        type: 'string',
+        description: 'Tělo článku jako HTML pro Quill editor. Pouze povolené tagy <p>, <h2>, <strong>, <em>, <a href="...">. 600-900 slov. Strukturu viz system prompt.'
+      },
+      image_prompt: {
+        type: 'string',
+        description: 'Anglický prompt pro DALL·E / OpenAI Images.'
+      },
+      image_alt: {
+        type: 'string',
+        description: 'Český alt text pro ilustraci, 1 věta.'
+      },
+      source_title: {
+        type: 'string',
+        description: 'Název časopisu nebo zdroje (např. Nature, Science, ICS). Pokud není známý, vrať prázdný řetězec.'
+      },
+      source_url: {
+        type: 'string',
+        description: 'URL na studii. Pokud není známé, vrať prázdný řetězec.'
+      }
+    },
+    required: ['title', 'excerpt', 'content_html', 'image_prompt']
+  }
+};
 
 function corsHeaders() {
   return {
@@ -93,10 +129,14 @@ async function callClaude({ studyText, sourceUrl, sourceTitle }) {
     throw new Error('Empty input — need study_text or source_url');
   }
 
+  // Tool Use: Anthropic API parsuje a validuje JSON na své straně, takže vždy
+  // dostaneme objekt v tool_use bloku, bez ohledu na uvozovky uvnitř HTML.
   const body = {
     model: ANTHROPIC_MODEL,
-    max_tokens: 4096,
+    max_tokens: 8192,
     system: SYSTEM_PROMPT,
+    tools: [ARTICLE_TOOL],
+    tool_choice: { type: 'tool', name: ARTICLE_TOOL.name },
     messages: [{ role: 'user', content: userParts.join('\n\n') }]
   };
 
@@ -117,24 +157,26 @@ async function callClaude({ studyText, sourceUrl, sourceTitle }) {
     throw new Error(`Anthropic API ${response.status}: ${data.error?.message || JSON.stringify(data)}`);
   }
 
-  // Spojit content blocks (Claude vrací array of blocks)
-  const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-  // Vyextrahovat JSON: zkusíme najít první { až poslední }
-  const firstBrace = text.indexOf('{');
-  const lastBrace = text.lastIndexOf('}');
-  if (firstBrace === -1 || lastBrace === -1) {
-    throw new Error(`Claude vrátil odpověď bez JSON: ${text.substring(0, 300)}…`);
+  // Najdi tool_use blok se správným jménem.
+  const toolUse = (data.content || []).find(
+    b => b.type === 'tool_use' && b.name === ARTICLE_TOOL.name
+  );
+  if (!toolUse) {
+    const text = (data.content || [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
+      .join('')
+      .substring(0, 500);
+    throw new Error(
+      `Claude nezavolal tool ${ARTICLE_TOOL.name}. stop_reason=${data.stop_reason}, text="${text}"`
+    );
   }
-  const jsonStr = text.substring(firstBrace, lastBrace + 1);
-  let parsed;
-  try {
-    parsed = JSON.parse(jsonStr);
-  } catch (e) {
-    throw new Error(`Claude vrátil neparsovatelný JSON: ${e.message}\n${jsonStr.substring(0, 500)}…`);
-  }
-  // Sanity check
+
+  const parsed = toolUse.input || {};
   for (const k of ['title', 'excerpt', 'content_html', 'image_prompt']) {
-    if (!parsed[k]) throw new Error(`Claude JSON neobsahuje povinné pole "${k}"`);
+    if (!parsed[k]) {
+      throw new Error(`Tool input neobsahuje povinné pole "${k}". Klíče: ${Object.keys(parsed).join(', ')}`);
+    }
   }
   return parsed;
 }
