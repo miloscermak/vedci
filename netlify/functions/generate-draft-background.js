@@ -181,28 +181,73 @@ async function callClaude({ studyText, sourceUrl, sourceTitle }) {
   return parsed;
 }
 
+// Inline image gen — přímé volání OpenAI Images + upload do Supabase Storage.
+// Dříve to bylo chained na sync generate-image funkci, ale ta má 10s timeout
+// a OpenAI Images potřebuje typicky 15-30 s. Background funkce, ve které tohle
+// běží, má 15 min, takže oba kroky pohodlně stihnou.
 async function maybeGenerateImage(imagePrompt) {
-  const baseUrl = process.env.URL || process.env.DEPLOY_PRIME_URL;
-  if (!baseUrl) {
-    console.warn('No URL env, skipping image generation chain.');
-    return null;
-  }
+  if (!imagePrompt) return null;
   try {
-    const response = await fetch(`${baseUrl}/.netlify/functions/generate-image`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: imagePrompt })
-    });
-    const result = await response.json();
-    if (!response.ok || !result.success) {
-      console.error('generate-image returned error:', result);
-      return null;
-    }
-    return result.image_url;
+    const buffer = await callOpenAIImages(imagePrompt, '1536x1024');
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.png`;
+    const publicUrl = await uploadToSupabaseStorage(buffer, fileName);
+    return publicUrl;
   } catch (e) {
-    console.error('generate-image chain failed:', e.message);
+    console.error('Image gen failed (inline):', e.message);
     return null;
   }
+}
+
+async function callOpenAIImages(prompt, size) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY není nastavený v env');
+  }
+  const response = await fetch('https://api.openai.com/v1/images/generations', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'gpt-image-1',
+      prompt,
+      size,
+      n: 1
+    })
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(`OpenAI Images ${response.status}: ${data.error?.message || JSON.stringify(data)}`);
+  }
+  const b64 = data.data?.[0]?.b64_json;
+  if (!b64) {
+    throw new Error('OpenAI nevrátil b64_json: ' + JSON.stringify(data).substring(0, 300));
+  }
+  return Buffer.from(b64, 'base64');
+}
+
+async function uploadToSupabaseStorage(buffer, fileName) {
+  const supabaseUrl = envOrError('SUPABASE_URL');
+  const serviceKey = envOrError('SUPABASE_SERVICE_ROLE');
+  const bucket = 'article-images';
+  const path = `articles/${fileName}`;
+
+  const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${path}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${serviceKey}`,
+      apikey: serviceKey,
+      'Content-Type': 'image/png',
+      'x-upsert': 'false'
+    },
+    body: buffer
+  });
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Supabase Storage upload ${response.status}: ${err}`);
+  }
+  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`;
 }
 
 async function insertDraftToSupabase(payload) {
