@@ -78,7 +78,7 @@ Studie (URL/text)
 
 ---
 
-## Co bylo dnes vyřešeno
+## Co bylo dříve vyřešeno (1. května 2026)
 
 1. **Schema migrace** – přidány sloupce `status`, `image_prompt`, `study_source`, `published_at`, `generated_by` do `articles`. Backfill existujících 138 článků na `published`.
 2. **database.js refactor** – read metody filtrují published, draft API přidáno.
@@ -87,6 +87,13 @@ Studie (URL/text)
 5. **Bug fix slug** – `generateSlug` neuměl `ě` (článek o AI awareness skončil pod slugem `…-v-di` místo `…-vedi`). Opraveno přes Unicode normalizaci.
 6. **Production deploy branch fix** – Netlify měla production branch nastavenou na starý Claude Code branch `claude/admin-website-setup-…`, ne na `main`. Přepnuto na main.
 7. **První ostrý článek z pipeline publikovaný** – AI vs. lékaři v diagnostickém úsudku (https://vedcizjistili.cz/?clanek=umela-inteligence-prekonala-stovky-lekaru-v-diagnostickem-uv).
+
+## Co bylo vyřešeno 4. května 2026
+
+1. **Generování draftu padalo na dlouhých studiích** s prázdným function logem a generickým „Function returned 500". Příčina: Background Functions = AWS Lambda async invoke = **256 KB request payload limit**. Plný text vědeckého paperu (200–300 KB) přes ten limit přeteče → Lambda spojení odpojí ještě před zavoláním kódu (proto prázdný log).
+2. **Fix: gzip+base64 v adminu.** `admin.html` → `handleAiDraftSubmit` text > 100 KB v prohlížeči zabalí přes `CompressionStream('gzip')` + base64 a posílá jako pole `study_text_gzip_b64`. Funkce dekomprimuje přes vestavěný `zlib.gunzipSync` (žádná nová npm závislost). Reálný ratio 5–8×, takže do limitu se vejde studie až cca 1.2 MB raw. Když i po kompresi přesáhne 240 KB, admin to odmítne s konkrétní hláškou.
+3. **Lepší error handler v adminu.** Předtím `Function returned 500` byl jediná hláška, kterou jsi viděl, i když Netlify vracel HTML error stránku s konkrétní příčinou. Teď admin při ne-JSON 4xx/5xx ukáže prvních 400 znaků těla a zaloguje plnou odpověď do `console.error`. Příště nemusíš lézt do Netlify Functions logu jako první krok.
+4. **Commit `df68c1d`** – `Fix: dlouhý text studie přes gzip+b64 (Lambda async 256 KB limit)`.
 
 ---
 
@@ -121,10 +128,12 @@ Studie (URL/text)
 
 ## Drobnosti k pamatování
 
+- **Tlačítko Publikovat = direct Supabase update, ne Netlify funkce.** `admin.html` → `publishDraftFromAdmin` → `database.js` → `publishDraft(id)` jen UPDATEne `status='published', published_at=now`. Žádný Netlify call v tom není. Pokud někdy uvidíš „Function returned 500" při publikování, je to skoro jistě generování draftu (jediná funkce, kterou admin volá je `generate-draft-background`), ne publish.
+- **Empty function log + 500 = payload limit.** Background Functions hází `500` z runtime úrovně (před zavoláním kódu) nejčastěji kvůli překročení 256 KB request body. Pokud kdy uvidíš tuto kombinaci, první podezřelá je velikost vstupu, ne kód funkce.
 - Slug bug s `ě`/`ů` byl v `generateSlug`. Před deploy fixu měl jeden článek slug `…-v-di` místo `…-vedi`. Zachováno v DB pod nesprávným slugem (URL se nezměnila kvůli SEO/sdíleným odkazům). Pokud někdy budeš generovat slug pro nový článek, zkontroluj, že obsahuje všechny české znaky.
 - Drafts list v adminu polluje DB každých 5s po dobu 3 min. Polling timeout může být v některých případech krátký – ostrá studie s plným abstraktem trvala 1m41s, ostatní studie můžou jet déle. Pokud bude víc stížností, prodluž na 6 min.
-- Cowork (Claude desktop) má své stejné approach pro vytváření draftů: zapsat přímo do Supabase přes anon key (RLS u nás povoluje insert), ne přes Netlify funkci. Proto Cowork workflow nemá závislost na Netlify env.
-- Při práci v Cowork sandboxu se občas zaseknou git lock files (`.git/index.lock`, `.git/HEAD.lock`) na FUSE mountu – nejde je odstranit přes `rm`, ale jde je přejmenovat (`mv .git/index.lock .git/x`). Při lokálním pushi z laptopu se to nestává.
+- ~~Cowork (Claude desktop) má své stejné approach pro vytváření draftů: zapsat přímo do Supabase přes anon key.~~ **Toto už neplatí (4. května 2026).** Cowork sandbox má egress allowlist a Supabase host v něm není — pokus o přímý zápis vrátí `cowork-egress-blocked`. Detail v sekci „Pravidla pro Cowork workflow" výše. Workflow je teď: Cowork vyrobí lokální Node skript v `scripts/`, Miloš ho spustí z laptopu.
+- Při práci v Cowork sandboxu se občas zaseknou git lock files (`.git/index.lock`, `.git/HEAD.lock`) na FUSE mountu – nejde je odstranit přes `rm` ze sandboxu, ale jde je smazat z laptopu (`rm -f .git/HEAD.lock .git/index.lock`). Pokud Cowork pokusí o `git commit` a spadne, lock zůstane viset a propíše se přes mount na laptop. Pak commit ze sandboxu nefunguje, ale commit z laptopu ano (po smazání locku).
 
 ---
 
@@ -134,20 +143,25 @@ Když mi pošle Miloš studii v chatu a chce z ní článek:
 
 1. Otevři skill `science-journalism` (nebo přečti `/var/folders/h0/.../skills/science-journalism/SKILL.md`).
 2. Stáhni / přečti studii. Pokud je za paywall a Miloš nepošle text, požádej o text.
-3. Napiš článek dle skillu, 600-900 slov, struktura úvod → metoda → 5 zjištění → pochyby → out-of-the-box → shrnutí.
+3. Napiš článek dle skillu, 600–900 slov, struktura úvod → metoda → 5 zjištění → pochyby → out-of-the-box → shrnutí.
 4. Vyrob slug, excerpt, prompt na obrázek.
-5. Zapis přímo do Supabase tabulky `articles` přes anon key:
+5. **Cowork sandbox NEDOSÁHNE na Supabase přímo** (egress allowlist neobsahuje host `qcwuieppccnozzcsjlxy.supabase.co`; allowlist obsahuje hlavně registry, github, anthropic.com). Pokus o `fetch` vrátí `cowork-egress-blocked`. Místo přímého insertu vyrob v repu jednorázový skript `scripts/insert-draft-<topic>.js`, který používá native `fetch` (Node 18+, žádné npm závislosti — `@supabase/supabase-js` v projektu není), a Miloš ho spustí lokálně z laptopu přes `node scripts/insert-draft-<topic>.js`. Anon key z `config.js` má RLS povolený insert do `articles`. Vzor payloadu:
    ```js
-   await supabase.from('articles').insert({
-     title, content, excerpt, slug, date, source_title, source_url,
-     image_prompt, study_source: <originální text/URL>,
-     status: 'draft', generated_by: 'cowork'
-   });
+   const draft = {
+     title, slug, content, excerpt, date,
+     source_title, source_url,
+     image_url: null, image_prompt,
+     study_source: '<originální text nebo URL>',
+     generated_by: 'cowork',
+     status: 'draft'
+   };
+   // POST /rest/v1/articles s anon key, headers apikey + Authorization Bearer.
    ```
-6. Řekni Milošovi: „Draft #X je v adminu připravený, zkontroluj a publikuj."
+6. Místo ručního skriptu lze také navrhnout, ať Miloš přidá Supabase host do Settings → Capabilities (egress allowlist), pak by šlo psát přímo. Lokální spuštění je ale obvykle rychlejší a bez konfigurace.
+7. Řekni Milošovi: „Draft je připravený, spusť `node scripts/insert-draft-<topic>.js` z laptopu, pak ho najdeš v adminu pod Rozpracované drafty."
 
-Pokud Miloš chce obrázek vyrobený, zatím to musí udělat externě (ChatGPT/Gemini) a v adminu nahrát ručně. Případně zavolat `generate-image` Netlify funkci přes curl.
+Pokud Miloš chce obrázek vyrobený, zatím to musí udělat externě (ChatGPT/Gemini) a v adminu nahrát ručně. Případně zavolat `generate-image` Netlify funkci přes curl. Cowork sandbox sám obrázek nevyrobí (nemá přístup k OpenAI Images API stejně jako k Supabase).
 
 ---
 
-*Aktualizováno: 1. května 2026 (po prvním ostrém průchodu pipeline)*
+*Aktualizováno: 4. května 2026 (po fixu padání generate-draft na dlouhých studiích + revize Cowork workflow kvůli egress allowlistu)*
