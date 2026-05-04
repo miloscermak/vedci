@@ -917,24 +917,73 @@
                 const beforeDrafts = await window.articleDB.getAllDrafts();
                 const maxIdBefore = beforeDrafts.reduce((m, d) => Math.max(m, d.id || 0), 0);
 
+                // Netlify Background Functions běží jako AWS Lambda async invoke,
+                // který má request payload limit 256 KB. Plné texty studií se přes
+                // ten limit občas dostanou — JSON.stringify ohlásí 500 ještě před
+                // zavoláním funkce. Trik: dlouhý text gzipnout v prohlížeči a poslat
+                // jako base64. Funkce dekompresuje. Reálná úspora 5-10×, takže do
+                // limitu se dostane studie až cca 1.5 MB raw.
+                const PAYLOAD_LIMIT_BYTES = 240 * 1024; // 240 KB, malá rezerva pod 256
+                const COMPRESS_OVER = 100 * 1024;        // gzipuj cokoli nad 100 KB
+
+                const payload = {
+                    source_url: url || null,
+                    source_title: sourceTitle || null,
+                    generate_image: generateImage
+                };
+
+                const textByteLength = text ? new Blob([text]).size : 0;
+
+                if (text && textByteLength > COMPRESS_OVER && typeof CompressionStream !== 'undefined') {
+                    statusEl.textContent = 'Komprimuji text studie…';
+                    const cs = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
+                    const gz = new Uint8Array(await new Response(cs).arrayBuffer());
+                    // base64 encode po blocích, ať String.fromCharCode neexploduje na velkém poli
+                    let b64 = '';
+                    const CHUNK = 0x8000;
+                    for (let i = 0; i < gz.length; i += CHUNK) {
+                        b64 += String.fromCharCode.apply(null, gz.subarray(i, i + CHUNK));
+                    }
+                    payload.study_text_gzip_b64 = btoa(b64);
+                    console.log(`[ai-draft] text ${textByteLength} B → gzip+b64 ${payload.study_text_gzip_b64.length} B`);
+                } else if (text) {
+                    payload.study_text = text;
+                }
+
+                const bodyJson = JSON.stringify(payload);
+                if (bodyJson.length > PAYLOAD_LIMIT_BYTES) {
+                    throw new Error(
+                        `Studie je i po kompresi moc dlouhá (${Math.round(bodyJson.length / 1024)} KB). ` +
+                        `Netlify Background Functions přijímají max 256 KB. ` +
+                        `Zkrať text na nejdůležitější části (úvod + metoda + závěr) nebo pošli jen URL.`
+                    );
+                }
+
+                statusEl.textContent = 'Spouštím generování na pozadí…';
                 const response = await fetch('/.netlify/functions/generate-draft-background', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        source_url: url || null,
-                        source_title: sourceTitle || null,
-                        study_text: text || null,
-                        generate_image: generateImage
-                    })
+                    body: bodyJson
                 });
 
                 // Background function vrací 202 bez body. Jakýkoli 4xx/5xx je problém.
                 if (response.status !== 202 && !response.ok) {
+                    // Když Netlify vrátí 500 z runtime úrovně (ne z catch bloku funkce),
+                    // tělo bývá HTML error stránka. Vytáhneme jej jako text a zalogujeme,
+                    // ať máme co debugovat — místo generického „Function returned 500".
                     let errMsg = `Function returned ${response.status}`;
-                    try {
-                        const result = await response.json();
-                        errMsg = result.error || errMsg;
-                    } catch (_) { /* response není JSON, drž generic */ }
+                    let bodyText = '';
+                    try { bodyText = await response.text(); } catch (_) { /* prázdné */ }
+                    if (bodyText) {
+                        try {
+                            const result = JSON.parse(bodyText);
+                            errMsg = result.error || errMsg;
+                        } catch (_) {
+                            // Není JSON, ber prvních 400 znaků jako diagnostiku.
+                            errMsg = `${errMsg} — ${bodyText.substring(0, 400)}`;
+                        }
+                    }
+                    console.error('generate-draft fetch failed:', response.status, bodyText);
                     throw new Error(errMsg);
                 }
 

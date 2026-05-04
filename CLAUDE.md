@@ -49,6 +49,8 @@ Studie (URL/text)
 - **Žádný HTTP chain mezi background a sync funkcí.** Image gen dělej inline ve stejné background funkci, jinak narazíš na 10s sync timeout. (Generate-image.js je sync, takže hodí 504. Ponechej ji jen pro budoucí ad-hoc volání.)
 - Anthropic API – **vždy Tool Use s input_schema**. Plain-text JSON parsing padá na neeskapovaných uvozovkách v HTML. Tool Use to vyřeší na úrovni API.
 - Supabase write z funkce – **service_role klíč**, ne anon. Anon je svázaný RLS.
+- **Background Functions = AWS Lambda async invoke = 256 KB request payload limit.** Sync Lambda má 6 MB, ale tu nepoužíváme kvůli timeoutu. Když je studie dlouhá, plné HTML/text studie se přes 256 KB dostane snadno (jeden vědecký paper s plným textem má 200–300 KB) → Lambda invoke vrátí 500 **ještě před** zavoláním kódu, takže **function log zůstane prázdný**. Pokud uvidíš `Function returned 500` + prázdný log, první podezřelá je velikost payloadu.
+- **Řešení dlouhého textu studie: gzip+base64 v adminu.** `admin.html` → `handleAiDraftSubmit`: text > 100 KB se zabalí přes browser `CompressionStream('gzip')`, pošle jako pole `study_text_gzip_b64`. Funkce `generate-draft-background.js` ho dekomprimuje přes `zlib.gunzipSync`. Reálný ratio na vědeckém textu 5–8×, takže do limitu se dostane studie až cca 1.2 MB raw. Když by i po kompresi bylo > 240 KB, admin to odmítne s konkrétní hláškou.
 
 ---
 

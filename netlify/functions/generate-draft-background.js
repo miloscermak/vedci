@@ -282,7 +282,25 @@ exports.handler = async (event) => {
 
   try {
     const input = JSON.parse(event.body || '{}');
-    const studyText = (input.study_text || '').trim();
+
+    // Background Functions limit: 256 KB request payload. Admin proto dlouhé texty
+    // posílá jako gzip+base64 v poli study_text_gzip_b64. Dekomprimuj zde.
+    let studyText = (input.study_text || '').trim();
+    if (!studyText && input.study_text_gzip_b64) {
+      try {
+        const zlib = require('zlib');
+        const buf = Buffer.from(input.study_text_gzip_b64, 'base64');
+        studyText = zlib.gunzipSync(buf).toString('utf-8').trim();
+        console.log(`[generate-draft] dekomprimováno: ${input.study_text_gzip_b64.length} B b64 → ${studyText.length} chars text`);
+      } catch (e) {
+        return {
+          statusCode: 400,
+          headers: corsHeaders(),
+          body: JSON.stringify({ success: false, error: 'Dekomprese study_text_gzip_b64 selhala: ' + e.message })
+        };
+      }
+    }
+
     const sourceUrl = (input.source_url || '').trim();
     const sourceTitle = (input.source_title || '').trim();
     const wantImage = !!input.generate_image;
