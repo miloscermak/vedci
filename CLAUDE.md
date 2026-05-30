@@ -74,7 +74,7 @@ Studie (URL/text)
 - `SUPABASE_URL` – `https://qcwuieppccnozzcsjlxy.supabase.co`
 - `SUPABASE_SERVICE_ROLE` – service role klíč (NIKDY do client-side)
 - `RESEND_API_KEY` – existující, pro newsletter
-- `ANTHROPIC_MODEL` – volitelné, default `claude-opus-4-6`
+- `ANTHROPIC_MODEL` – volitelné, default `claude-opus-4-8`
 
 ---
 

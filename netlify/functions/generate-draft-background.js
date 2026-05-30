@@ -20,7 +20,7 @@ const fetch = (() => {
 })();
 
 const ANTHROPIC_VERSION = '2023-06-01';
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-4-6';
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-4-8';
 
 const SYSTEM_PROMPT = `Jsi popularizátor vědy. Píšeš pro web vedcizjistili.cz, který transformuje vědecké studie do přístupných intelektuálně provokativních článků pro obecné publikum.
 
