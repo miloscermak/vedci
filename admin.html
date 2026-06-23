@@ -846,6 +846,7 @@
                                     </div>
                                     <div style="display: flex; gap: 0.5rem; flex-shrink: 0;">
                                         <button class="btn" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;" onclick="editArticle(${d.id})">Upravit</button>
+                                        <button class="btn btn-secondary" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;" onclick="generateArticleImage(${d.id}, this)">${d.image_url ? 'Nový obrázek' : 'Vygenerovat obrázek'}</button>
                                         <button class="btn btn-success" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;" onclick="publishDraftFromAdmin(${d.id}, '${titleSafe}')">Publikovat</button>
                                         <button class="btn btn-danger" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;" onclick="deleteArticle(${d.id}, '${titleSafe}')">Smazat</button>
                                     </div>
@@ -884,6 +885,76 @@
             } catch (error) {
                 console.error('Chyba při publikaci draftu:', error);
                 alert('Došlo k chybě při publikaci draftu.');
+            }
+        }
+
+        // ============= REGENERACE OBRÁZKU + UNPUBLISH =============
+
+        const AI_ARTICLE_IMAGE_URL = '/.netlify/functions/generate-article-image-background';
+
+        // Dogeneruje / přegeneruje obrázek k existujícímu článku (draft i publikovaný).
+        async function generateArticleImage(id, btn) {
+            if (btn && btn.textContent.trim() === 'Nový obrázek' &&
+                !confirm('Přegenerovat obrázek? Stávající se nahradí novým.')) return;
+
+            const originalLabel = btn ? btn.textContent : '';
+            if (btn) { btn.disabled = true; btn.textContent = 'Generuji…'; }
+
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) {
+                    alert('Nejsi přihlášený. Přihlas se prosím znovu.');
+                    if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+                    return;
+                }
+
+                // Zapamatuj si stávající obrázek, ať poznáš změnu
+                const before = await window.articleDB.getArticleById(id);
+                const originalImage = before ? before.image_url : null;
+
+                const res = await fetch(AI_ARTICLE_IMAGE_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                    body: JSON.stringify({ article_id: id })
+                });
+                if (res.status >= 400) throw new Error(`Funkce vrátila ${res.status}: ${await res.text()}`);
+
+                // Polling: čekej, dokud se image_url nezmění (max ~3 min)
+                let found = null;
+                for (let i = 0; i < 36 && !found; i++) {
+                    await new Promise(r => setTimeout(r, 5000));
+                    const a = await window.articleDB.getArticleById(id);
+                    if (a && a.image_url && a.image_url !== originalImage) found = a.image_url;
+                }
+
+                if (found) {
+                    await loadDrafts();
+                    await loadArticles();
+                } else {
+                    if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+                    alert('Obrázek se zatím neobjevil. Generování možná ještě běží, nebo nastala chyba (Netlify → Functions → generate-article-image-background → Logs).');
+                }
+            } catch (e) {
+                console.error('Chyba generování obrázku:', e);
+                if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+                alert('Nepodařilo se vygenerovat obrázek: ' + e.message);
+            }
+        }
+
+        // Stáhnout publikovaný článek z webu zpět do draftů.
+        async function unpublishFromAdmin(id, title) {
+            if (!confirm(`Stáhnout článek „${title}" z webu zpět do draftů?`)) return;
+            try {
+                const result = await window.articleDB.unpublishArticle(id);
+                if (result.success) {
+                    await loadArticles();
+                    await loadDrafts();
+                } else {
+                    alert('Chyba: ' + result.error);
+                }
+            } catch (e) {
+                console.error('Chyba při stahování článku:', e);
+                alert('Došlo k chybě.');
             }
         }
 
@@ -1005,11 +1076,13 @@
                 }
 
                 if (foundDraft) {
-                    statusEl.textContent = `Hotovo. Draft "${foundDraft.title}" čeká na kontrolu níže.`;
+                    statusEl.textContent = `Hotovo. Draft "${foundDraft.title}" se otevřel k úpravě.`;
                     statusEl.style.color = '#27ae60';
                     document.getElementById('ai-draft-form').reset();
                     document.getElementById('ai-draft-generate-image').checked = true;
                     await loadDrafts();
+                    // Rovnou otevři vygenerovaný draft v editačním formuláři
+                    editArticle(foundDraft.id);
                 } else {
                     statusEl.textContent = 'Čekání vypršelo (3 min). Zkontroluj Netlify Functions logs — funkce možná spadla. Drafty se občas objeví i po vypršení polling, zkus stránku obnovit.';
                     statusEl.style.color = '#e67e22';
@@ -1123,6 +1196,12 @@
                             <div style="display: flex; gap: 0.5rem;">
                                 <button class="btn" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;" onclick="editArticle(${article.id})">
                                     Editovat
+                                </button>
+                                <button class="btn btn-secondary" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;" onclick="generateArticleImage(${article.id}, this)">
+                                    Nový obrázek
+                                </button>
+                                <button class="btn" style="padding: 0.3rem 0.8rem; font-size: 0.8rem; background-color: #f39c12;" onclick="unpublishFromAdmin(${article.id}, '${article.title.replace(/'/g, "\\'")}')" title="Stáhnout z webu zpět do draftů">
+                                    Stáhnout z webu
                                 </button>
                                 <button class="btn" style="padding: 0.3rem 0.8rem; font-size: 0.8rem; background-color: #e74c3c;" onclick="deleteArticle(${article.id}, '${article.title.replace(/'/g, "\\'")}')" title="Smazat článek">
                                     Smazat
