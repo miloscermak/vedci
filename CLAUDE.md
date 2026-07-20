@@ -48,6 +48,7 @@ Studie (URL/text)
 - Background functions na Netlify (`*-background.js` suffix). Sync funkce mají 10s timeout, AI volání to nestihne. Background mají 15 min.
 - **Žádný HTTP chain mezi background a sync funkcí.** Image gen dělej inline ve stejné background funkci, jinak narazíš na 10s sync timeout. (Generate-image.js je sync, takže hodí 504. Ponechej ji jen pro budoucí ad-hoc volání.)
 - Anthropic API – **vždy Tool Use s input_schema**. Plain-text JSON parsing padá na neeskapovaných uvozovkách v HTML. Tool Use to vyřeší na úrovni API.
+- **Model pro text článků: Claude Fable 5** (`claude-fable-5`, od července 2026; dražší než Opus – $10/$50 za MTok). V `generate-draft-background.js` je server-side fallback na `claude-opus-4-8` – kdyby Fable požadavek odmítl (přísnější bezpečnostní klasifikátory, u vědeckých studií vzácné, ale možné např. u biomedicínských témat), API automaticky dogeneruje Opusem v rámci téhož volání. Který model reálně psal, je vidět v Netlify logu (`text napsal model: …`). Prompty na obrázky (`generate-article-image-background.js`) jedou dál na Opus 4.8.
 - Supabase write z funkce – **service_role klíč**, ne anon. Anon je svázaný RLS.
 - **Background Functions = AWS Lambda async invoke = 256 KB request payload limit.** Sync Lambda má 6 MB, ale tu nepoužíváme kvůli timeoutu. Když je studie dlouhá, plné HTML/text studie se přes 256 KB dostane snadno (jeden vědecký paper s plným textem má 200–300 KB) → Lambda invoke vrátí 500 **ještě před** zavoláním kódu, takže **function log zůstane prázdný**. Pokud uvidíš `Function returned 500` + prázdný log, první podezřelá je velikost payloadu.
 - **Řešení dlouhého textu studie: gzip+base64 v adminu.** `admin.html` → `handleAiDraftSubmit`: text > 100 KB se zabalí přes browser `CompressionStream('gzip')`, pošle jako pole `study_text_gzip_b64`. Funkce `generate-draft-background.js` ho dekomprimuje přes `zlib.gunzipSync`. Reálný ratio na vědeckém textu 5–8×, takže do limitu se dostane studie až cca 1.2 MB raw. Když by i po kompresi bylo > 240 KB, admin to odmítne s konkrétní hláškou.
@@ -74,7 +75,7 @@ Studie (URL/text)
 - `SUPABASE_URL` – `https://qcwuieppccnozzcsjlxy.supabase.co`
 - `SUPABASE_SERVICE_ROLE` – service role klíč (NIKDY do client-side)
 - `RESEND_API_KEY` – existující, pro newsletter
-- `ANTHROPIC_MODEL` – volitelné, default `claude-opus-4-8`
+- `ANTHROPIC_MODEL` – volitelné, default `claude-fable-5` (text článků; pozor – tato env proměnná přebíjí default v kódu, takže pokud je nastavená, platí ona)
 
 ---
 
