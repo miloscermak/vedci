@@ -67,3 +67,15 @@ temp/
 
 # Konfigurační soubory s API klíči
 config.local.js
+# Claude Code lokální nastavení a worktrees
+.claude/
+
+# Lokální pracovní složka se studiemi (PDF, drafty)
+studie/
+
+# Starý lokální workflow (Gemini, březen 2026) – nahrazen draft pipeline v netlify/functions
+WORKFLOW.md
+publish.py
+publish.sh
+generate-image.sh
+image-prompt.md
