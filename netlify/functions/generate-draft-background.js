@@ -22,9 +22,9 @@ const fetch = (() => {
 const ANTHROPIC_VERSION = '2023-06-01';
 // Fable 5 je nejschopnější model Anthropicu (dražší než Opus). Kdyby požadavek
 // odmítly jeho bezpečnostní klasifikátory, API díky `fallbacks` automaticky
-// zopakuje generování na Opusu 4.8 v rámci téhož volání.
+// zopakuje generování na Opusu 5 v rámci téhož volání.
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-fable-5';
-const ANTHROPIC_FALLBACK_MODEL = 'claude-opus-4-8';
+const ANTHROPIC_FALLBACK_MODEL = 'claude-opus-5';
 
 const SYSTEM_PROMPT = `Jsi popularizátor vědy. Píšeš pro web vedcizjistili.cz, který transformuje vědecké studie do přístupných intelektuálně provokativních článků pro obecné publikum.
 
