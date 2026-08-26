@@ -99,32 +99,37 @@ Studie (URL/text)
 
 ---
 
+## Co bylo vyřešeno 26. srpna 2026
+
+1. **Lokální checkout byl 35 commitů pozadu** (zaseknutý v červnu 2025, bez `netlify/`, `homepage.js`, `auth.js`). Srovnáno s originem; do `.gitignore` přidány `.claude/`, `studie/` a starý březnový Gemini workflow (`WORKFLOW.md`, `publish.py`, `publish.sh`, `generate-image.sh`, `image-prompt.md`) – soubory zůstaly na disku, jen je git přestal hlásit.
+2. **Modely na Opus 5.** Fallback pro text i model pro obrázkové prompty. Obrázková funkce dostala vlastní `ANTHROPIC_IMAGE_MODEL` – dřív obě funkce četly tutéž `ANTHROPIC_MODEL`, takže přepnutí textového modelu by změnilo i obrázkový.
+3. **Slug se ořezává na hranici slova** (`trimSlug`). Pozor: slug se generuje na **dvou** místech – `generateSlug` v `database.js` a `makeSlug` v `generate-draft-background.js`. Obě mají vlastní kopii `trimSlug`; když budeš měnit jedno, změň i druhé.
+4. **Admin přestavěn na taby** – Generovat z AI (výchozí) / Články / Newsletter / Glosy / O projektu. Drafty a publikované sloučeny do jednoho seznamu s filtrem, hledáním, stránkováním po 20 a náhledy obrázků.
+5. **Chybějící admin CSS vráceno.** `.admin-form`, `.form-group` a `.btn` byly jen ve `styles_backup.css` / `styles-old.css` – z živého `styles.css` vypadly při redesignu homepage a admin od té doby renderoval formuláře i tlačítka bez stylů. Teď jsou v `<style>` bloku `admin.html`, takže admin nezávisí na public CSS. **Pořadí v tom bloku je důležité:** základní `.btn` musí být před `.btn-sm` / `.btn-success` / `.btn-danger`, jinak je přebije.
+6. **Editační formulář žije v tabu Články.** `editArticle` proto volá `switchTab('articles')` – bez toho by se po generování z AI naplnil ve skrytém tabu.
+
+---
+
 ## Otevřené úkoly (priority dle Miloše)
-
-### Polish
-
-1. **Slug se neuřízne uprostřed slova.** Současný `generateSlug` v `database.js` ořezává tvrdě na 60 znaků (`substring(0, 60)`). Příště ořezat na poslední pomlčce před 60. znakem, ať slugy končí celým slovem. Příklad selhání: článek o AI v diagnostice skončil sluggem `…diagnostickem-uv` místo `…diagnostickem-uvaze`.
 
 ### UX adminu
 
-2. **Náhled obrázku v draft listu.** Místo „obrázek ✓ / chybí" rendrovat reálný thumbnail (např. 80×42 px, lazy-loaded). Editor pak pozná podle obrázku, který draft je který.
-3. **Tlačítko „Vygenerovat nový obrázek"** v editačním formuláři draftu. Když AI vyrobí nepoužitelný obrázek, editor zadá nový prompt (nebo si nechá ten Claudův) a klikne. Volá `generate-image` (sync, ale s 26s Pro nebo přes nový background variant). Uloží novou URL do `image_url`.
-4. **„Stáhnout publikovaný článek do draftu"** – UI pro `unpublishArticle` (existuje API, chybí jen tlačítko).
+1. **Editační formulář draftu zatím nemá vlastní „Vygenerovat nový obrázek".** V seznamu článků tlačítko je (volá `generateArticleImage`), ale uvnitř otevřeného editačního formuláře chybí – editor musí zavřít formulář a jít do seznamu. Doplnit ho i tam, ideálně s možností přepsat prompt.
 
 ### Pipeline rozšíření
 
-5. **Auto-fetch URL studie.** Místo aby editor kopíroval abstrakt, funkce dostane URL a sama stáhne text. Pro Open Access studie (PMC, arXiv, MDPI) snadné. Pro paywalled (Nature, Science, Tandfonline) potřeba dohodnutý postup – buď ignorovat (editor musí poskytnout text), nebo specializovaný extractor.
-6. **PDF parser** – Netlify funkce, která dostane PDF, vrátí čistý text. Napojit na bod 5 a admin formulář. Lze vyřešit přes `pdfjs-dist` (čistý JS) nebo `pdf-parse` (Node native).
-7. **AB test claude-opus-4-6 vs. claude-sonnet-4-6.** Sonnet stojí ~10× méně, je rychlejší, drží strukturu lépe. Opus má lepší cit pro analogie a out-of-the-box section. Spustit oba na stejné studii, porovnat ručně, rozhodnout.
+2. **Auto-fetch URL studie.** Místo aby editor kopíroval abstrakt, funkce dostane URL a sama stáhne text. Pro Open Access studie (PMC, arXiv, MDPI) snadné. Pro paywalled (Nature, Science, Tandfonline) potřeba dohodnutý postup – buď ignorovat (editor musí poskytnout text), nebo specializovaný extractor.
+3. **PDF parser** – Netlify funkce, která dostane PDF, vrátí čistý text. Napojit na bod 2 a admin formulář. Lze vyřešit přes `pdfjs-dist` (čistý JS) nebo `pdf-parse` (Node native).
+4. **AB test claude-opus-4-6 vs. claude-sonnet-4-6.** Sonnet stojí ~10× méně, je rychlejší, drží strukturu lépe. Opus má lepší cit pro analogie a out-of-the-box section. Spustit oba na stejné studii, porovnat ručně, rozhodnout.
 
 ### Automatizace
 
-8. **Scheduled Netlify Function** – ráno projde RSS feedy (Nature Briefing, Science Daily, Eurek Alert) a předpřipraví drafty bez zásahu editora. Editor pak ráno otevře admin a vidí např. 3 drafty ke schválení. Frequency: 1× denně 6:00.
-9. **Slack/email notifikace o novém draftu** – až bude bod 8, ať mi Resend pošle email „máš X nových draftů" nebo zpráva na Slack.
+5. **Scheduled Netlify Function** – ráno projde RSS feedy (Nature Briefing, Science Daily, Eurek Alert) a předpřipraví drafty bez zásahu editora. Editor pak ráno otevře admin a vidí např. 3 drafty ke schválení. Frequency: 1× denně 6:00.
+6. **Slack/email notifikace o novém draftu** – až bude bod 5, ať mi Resend pošle email „máš X nových draftů" nebo zpráva na Slack.
 
 ### Newsletter integrace
 
-10. **Auto-zařazení nově publikovaného článku do dalšího newsletteru.** Aktuálně se newsletter posílá manuálně přes výběr v adminu. Mohlo by to být plánované – např. týdenní zpravodaj zahrnující všechny články za týden, automaticky.
+7. **Auto-zařazení nově publikovaného článku do dalšího newsletteru.** Aktuálně se newsletter posílá manuálně přes výběr v adminu. Mohlo by to být plánované – např. týdenní zpravodaj zahrnující všechny články za týden, automaticky.
 
 ---
 
@@ -166,4 +171,4 @@ Pokud Miloš chce obrázek vyrobený, zatím to musí udělat externě (ChatGPT/
 
 ---
 
-*Aktualizováno: 4. května 2026 (po fixu padání generate-draft na dlouhých studiích + revize Cowork workflow kvůli egress allowlistu)*
+*Aktualizováno: 26. srpna 2026 (sync s originem, modely na Opus 5, slug na hranici slova, přestavba adminu na taby)*
