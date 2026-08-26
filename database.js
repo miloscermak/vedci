@@ -377,7 +377,7 @@ class ArticleDatabase {
     // Pozn.: dříve chyběla písmena ě, Ě a další velké varianty —
     //        kvůli tomu vznikaly slugy jako „v-di" místo „vedi".
     generateSlug(title) {
-        return title
+        const slug = title
             .toLowerCase()
             // Diakritika přes normalizaci (zachytí i kombinované znaky).
             .normalize('NFD')
@@ -394,8 +394,23 @@ class ArticleDatabase {
             .replace(/[ň]/g, 'n')
             .replace(/[^a-z0-9]/g, '-')
             .replace(/-+/g, '-')
-            .replace(/^-|-$/g, '')
-            .substring(0, 60);
+            .replace(/^-|-$/g, '');
+
+        return this.trimSlug(slug);
+    }
+
+    // Ořez slugu na 60 znaků, ale vždy na hranici slova. Tvrdý substring dřív
+    // vyráběl slugy typu „…diagnostickem-uv" místo „…diagnostickem-uvaze".
+    trimSlug(slug, maxLength = 60) {
+        if (slug.length <= maxLength) return slug;
+
+        // Znak těsně za limitem je pomlčka → řez padne přesně mezi slova.
+        if (slug[maxLength] === '-') return slug.substring(0, maxLength);
+
+        const cut = slug.substring(0, maxLength);
+        const lastDash = cut.lastIndexOf('-');
+        // Bez pomlčky jde o jedno dlouhé slovo – tam nezbývá než říznout natvrdo.
+        return lastDash > 0 ? cut.substring(0, lastDash) : cut;
     }
 
     // ========== DRAFT API ==========

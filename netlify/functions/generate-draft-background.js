@@ -102,7 +102,7 @@ function envOrError(name) {
 
 // Velmi jednoduchý slug generátor — duplikát z database.js, aby fn nemusela načítat klient.
 function makeSlug(title) {
-  return title
+  const slug = title
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
@@ -117,8 +117,21 @@ function makeSlug(title) {
     .replace(/[ň]/g, 'n')
     .replace(/[^a-z0-9]/g, '-')
     .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    .substring(0, 60);
+    .replace(/^-|-$/g, '');
+
+  return trimSlug(slug);
+}
+
+// Ořez slugu na 60 znaků, ale vždy na hranici slova (stejná logika jako
+// `trimSlug` v database.js). Tvrdý substring dřív vyráběl slugy typu
+// „…diagnostickem-uv" místo „…diagnostickem-uvaze".
+function trimSlug(slug, maxLength = 60) {
+  if (slug.length <= maxLength) return slug;
+  if (slug[maxLength] === '-') return slug.substring(0, maxLength);
+
+  const cut = slug.substring(0, maxLength);
+  const lastDash = cut.lastIndexOf('-');
+  return lastDash > 0 ? cut.substring(0, lastDash) : cut;
 }
 
 async function callClaude({ studyText, sourceUrl, sourceTitle }) {
