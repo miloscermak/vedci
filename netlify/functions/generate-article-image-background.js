@@ -15,7 +15,7 @@
 //      a (doporučeno) SUPABASE_ANON_KEY pro ověření přihlášení.
 
 const ANTHROPIC_VERSION = '2023-06-01';
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-4-8';
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-5';
 const BUCKET = 'article-images';
 const FOLDER = 'articles';
 
