@@ -11,11 +11,14 @@
 //
 // Node 18+ (Netlify) má fetch globálně – žádná závislost není potřeba.
 //
-// Env: ANTHROPIC_API_KEY, OPENAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE
+// Env: ANTHROPIC_API_KEY, OPENAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE,
+//      volitelně ANTHROPIC_IMAGE_MODEL (default claude-opus-5)
 //      a (doporučeno) SUPABASE_ANON_KEY pro ověření přihlášení.
 
 const ANTHROPIC_VERSION = '2023-06-01';
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-5';
+// Vlastní proměnná (ne ANTHROPIC_MODEL), aby přepnutí modelu pro text článků
+// nezměnilo zároveň model generující prompty na obrázky.
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_IMAGE_MODEL || 'claude-opus-5';
 const BUCKET = 'article-images';
 const FOLDER = 'articles';
 

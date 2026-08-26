@@ -1,4 +1,4 @@
-# CLAUDE.md – instrukce pro Claude Code / Cowork
+# AGENTS.md – instrukce pro Codex / Cowork
 
 Stručný kontext projektu a otevřené úkoly. Čtu si tento soubor automaticky, takže když na něčem začínáme, podívej se sem nejdřív.
 
@@ -48,7 +48,7 @@ Studie (URL/text)
 - Background functions na Netlify (`*-background.js` suffix). Sync funkce mají 10s timeout, AI volání to nestihne. Background mají 15 min.
 - **Žádný HTTP chain mezi background a sync funkcí.** Image gen dělej inline ve stejné background funkci, jinak narazíš na 10s sync timeout. (Generate-image.js je sync, takže hodí 504. Ponechej ji jen pro budoucí ad-hoc volání.)
 - Anthropic API – **vždy Tool Use s input_schema**. Plain-text JSON parsing padá na neeskapovaných uvozovkách v HTML. Tool Use to vyřeší na úrovni API.
-- **Model pro text článků: Claude Fable 5** (`claude-fable-5`, od července 2026; dražší než Opus – $10/$50 za MTok). V `generate-draft-background.js` je server-side fallback na `claude-opus-5` – kdyby Fable požadavek odmítl (přísnější bezpečnostní klasifikátory, u vědeckých studií vzácné, ale možné např. u biomedicínských témat), API automaticky dogeneruje Opusem v rámci téhož volání. Který model reálně psal, je vidět v Netlify logu (`text napsal model: …`). Prompty na obrázky (`generate-article-image-background.js`) jedou na Opus 5.
+- **Model pro text článků: Codex Fable 5** (`Codex-fable-5`, od července 2026; dražší než Opus – $10/$50 za MTok). V `generate-draft-background.js` je server-side fallback na `Codex-opus-5` – kdyby Fable požadavek odmítl (přísnější bezpečnostní klasifikátory, u vědeckých studií vzácné, ale možné např. u biomedicínských témat), API automaticky dogeneruje Opusem v rámci téhož volání. Který model reálně psal, je vidět v Netlify logu (`text napsal model: …`). Prompty na obrázky (`generate-article-image-background.js`) jedou na Opus 5.
 - Supabase write z funkce – **service_role klíč**, ne anon. Anon je svázaný RLS.
 - **Background Functions = AWS Lambda async invoke = 256 KB request payload limit.** Sync Lambda má 6 MB, ale tu nepoužíváme kvůli timeoutu. Když je studie dlouhá, plné HTML/text studie se přes 256 KB dostane snadno (jeden vědecký paper s plným textem má 200–300 KB) → Lambda invoke vrátí 500 **ještě před** zavoláním kódu, takže **function log zůstane prázdný**. Pokud uvidíš `Function returned 500` + prázdný log, první podezřelá je velikost payloadu.
 - **Řešení dlouhého textu studie: gzip+base64 v adminu.** `admin.html` → `handleAiDraftSubmit`: text > 100 KB se zabalí přes browser `CompressionStream('gzip')`, pošle jako pole `study_text_gzip_b64`. Funkce `generate-draft-background.js` ho dekomprimuje přes `zlib.gunzipSync`. Reálný ratio na vědeckém textu 5–8×, takže do limitu se dostane studie až cca 1.2 MB raw. Když by i po kompresi bylo > 240 KB, admin to odmítne s konkrétní hláškou.
@@ -75,8 +75,7 @@ Studie (URL/text)
 - `SUPABASE_URL` – `https://qcwuieppccnozzcsjlxy.supabase.co`
 - `SUPABASE_SERVICE_ROLE` – service role klíč (NIKDY do client-side)
 - `RESEND_API_KEY` – existující, pro newsletter
-- `ANTHROPIC_MODEL` – volitelné, default `claude-fable-5` (text článků; pozor – tato env proměnná přebíjí default v kódu, takže pokud je nastavená, platí ona)
-- `ANTHROPIC_IMAGE_MODEL` – volitelné, default `claude-opus-5` (model, který píše anglické prompty pro `gpt-image-1` v `generate-article-image-background.js`; záměrně oddělené od `ANTHROPIC_MODEL`, ať přepnutí textového modelu nezmění zároveň i obrázkový)
+- `ANTHROPIC_MODEL` – volitelné, default `Codex-fable-5` (text článků; pozor – tato env proměnná přebíjí default v kódu, takže pokud je nastavená, platí ona)
 
 ---
 
@@ -87,7 +86,7 @@ Studie (URL/text)
 3. **Admin Drafty sekce** – list draftů s badgi `AI` / `Cowork`, tlačítka Upravit / Publikovat / Smazat, formulář pro AI generování.
 4. **Background function pipeline** – Anthropic Tool Use → OpenAI gpt-image-1 inline → Supabase Storage → insert.
 5. **Bug fix slug** – `generateSlug` neuměl `ě` (článek o AI awareness skončil pod slugem `…-v-di` místo `…-vedi`). Opraveno přes Unicode normalizaci.
-6. **Production deploy branch fix** – Netlify měla production branch nastavenou na starý Claude Code branch `claude/admin-website-setup-…`, ne na `main`. Přepnuto na main.
+6. **Production deploy branch fix** – Netlify měla production branch nastavenou na starý Codex branch `Codex/admin-website-setup-…`, ne na `main`. Přepnuto na main.
 7. **První ostrý článek z pipeline publikovaný** – AI vs. lékaři v diagnostickém úsudku (https://vedcizjistili.cz/?clanek=umela-inteligence-prekonala-stovky-lekaru-v-diagnostickem-uv).
 
 ## Co bylo vyřešeno 4. května 2026
@@ -115,7 +114,7 @@ Studie (URL/text)
 
 5. **Auto-fetch URL studie.** Místo aby editor kopíroval abstrakt, funkce dostane URL a sama stáhne text. Pro Open Access studie (PMC, arXiv, MDPI) snadné. Pro paywalled (Nature, Science, Tandfonline) potřeba dohodnutý postup – buď ignorovat (editor musí poskytnout text), nebo specializovaný extractor.
 6. **PDF parser** – Netlify funkce, která dostane PDF, vrátí čistý text. Napojit na bod 5 a admin formulář. Lze vyřešit přes `pdfjs-dist` (čistý JS) nebo `pdf-parse` (Node native).
-7. **AB test claude-opus-4-6 vs. claude-sonnet-4-6.** Sonnet stojí ~10× méně, je rychlejší, drží strukturu lépe. Opus má lepší cit pro analogie a out-of-the-box section. Spustit oba na stejné studii, porovnat ručně, rozhodnout.
+7. **AB test Codex-opus-4-6 vs. Codex-sonnet-4-6.** Sonnet stojí ~10× méně, je rychlejší, drží strukturu lépe. Opus má lepší cit pro analogie a out-of-the-box section. Spustit oba na stejné studii, porovnat ručně, rozhodnout.
 
 ### Automatizace
 
@@ -134,7 +133,7 @@ Studie (URL/text)
 - **Empty function log + 500 = payload limit.** Background Functions hází `500` z runtime úrovně (před zavoláním kódu) nejčastěji kvůli překročení 256 KB request body. Pokud kdy uvidíš tuto kombinaci, první podezřelá je velikost vstupu, ne kód funkce.
 - Slug bug s `ě`/`ů` byl v `generateSlug`. Před deploy fixu měl jeden článek slug `…-v-di` místo `…-vedi`. Zachováno v DB pod nesprávným slugem (URL se nezměnila kvůli SEO/sdíleným odkazům). Pokud někdy budeš generovat slug pro nový článek, zkontroluj, že obsahuje všechny české znaky.
 - Drafts list v adminu polluje DB každých 5s po dobu 3 min. Polling timeout může být v některých případech krátký – ostrá studie s plným abstraktem trvala 1m41s, ostatní studie můžou jet déle. Pokud bude víc stížností, prodluž na 6 min.
-- ~~Cowork (Claude desktop) má své stejné approach pro vytváření draftů: zapsat přímo do Supabase přes anon key.~~ **Toto už neplatí (4. května 2026).** Cowork sandbox má egress allowlist a Supabase host v něm není — pokus o přímý zápis vrátí `cowork-egress-blocked`. Detail v sekci „Pravidla pro Cowork workflow" výše. Workflow je teď: Cowork vyrobí lokální Node skript v `scripts/`, Miloš ho spustí z laptopu.
+- ~~Cowork (Codex desktop) má své stejné approach pro vytváření draftů: zapsat přímo do Supabase přes anon key.~~ **Toto už neplatí (4. května 2026).** Cowork sandbox má egress allowlist a Supabase host v něm není — pokus o přímý zápis vrátí `cowork-egress-blocked`. Detail v sekci „Pravidla pro Cowork workflow" výše. Workflow je teď: Cowork vyrobí lokální Node skript v `scripts/`, Miloš ho spustí z laptopu.
 - Při práci v Cowork sandboxu se občas zaseknou git lock files (`.git/index.lock`, `.git/HEAD.lock`) na FUSE mountu – nejde je odstranit přes `rm` ze sandboxu, ale jde je smazat z laptopu (`rm -f .git/HEAD.lock .git/index.lock`). Pokud Cowork pokusí o `git commit` a spadne, lock zůstane viset a propíše se přes mount na laptop. Pak commit ze sandboxu nefunguje, ale commit z laptopu ano (po smazání locku).
 
 ---
