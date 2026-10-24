@@ -6,19 +6,24 @@
 //   1) (volitelně) ověří přihlášení
 //   2) načte článek z DB (title, content)
 //   3) nechá Claude napsat anglický editorial prompt z titulku a obsahu
-//   4) OpenAI gpt-image-1 vygeneruje obrázek → upload do Supabase Storage
+//   4) OpenAI GPT Image 2.5 vygeneruje obrázek → upload do Supabase Storage
 //   5) uloží image_url (a image_prompt) k článku
 //
 // Node 18+ (Netlify) má fetch globálně – žádná závislost není potřeba.
 //
 // Env: ANTHROPIC_API_KEY, OPENAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE,
 //      volitelně ANTHROPIC_IMAGE_MODEL (default claude-opus-5)
+//      a OPENAI_IMAGE_MODEL (default gpt-image-2.5-flare)
 //      a (doporučeno) SUPABASE_ANON_KEY pro ověření přihlášení.
 
 const ANTHROPIC_VERSION = '2023-06-01';
 // Vlastní proměnná (ne ANTHROPIC_MODEL), aby přepnutí modelu pro text článků
 // nezměnilo zároveň model generující prompty na obrázky.
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_IMAGE_MODEL || 'claude-opus-5';
+// OpenAI vypnula gpt-image-1 23. 10. 2026. Flare je rychlá varianta GPT Image 2.5
+// (sunburst je detailnější, ale pomalejší). Env proměnná je tu kvůli příštímu
+// vypnutí – přepnutí modelu pak nepotřebuje deploy.
+const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2.5-flare';
 const BUCKET = 'article-images';
 const FOLDER = 'articles';
 
@@ -96,7 +101,7 @@ async function callOpenAIImages(prompt) {
   const res = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'gpt-image-1', prompt, size: '1536x1024', n: 1 })
+    body: JSON.stringify({ model: OPENAI_IMAGE_MODEL, prompt, size: '1536x1024', n: 1 })
   });
   const data = await res.json();
   if (!res.ok) throw new Error(`OpenAI Images ${res.status}: ${data.error?.message || JSON.stringify(data)}`);

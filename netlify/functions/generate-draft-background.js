@@ -26,6 +26,11 @@ const ANTHROPIC_VERSION = '2023-06-01';
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-fable-5';
 const ANTHROPIC_FALLBACK_MODEL = 'claude-opus-5';
 
+// OpenAI vypnula gpt-image-1 23. 10. 2026. Flare je rychlá varianta GPT Image 2.5
+// (sunburst je detailnější, ale pomalejší). Env proměnná je tu kvůli příštímu
+// vypnutí – přepnutí modelu pak nepotřebuje deploy.
+const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2.5-flare';
+
 const SYSTEM_PROMPT = `Jsi popularizátor vědy. Píšeš pro web vedcizjistili.cz, který transformuje vědecké studie do přístupných intelektuálně provokativních článků pro obecné publikum.
 
 VŽDY ZAVOLEJ TOOL save_article_draft a předej do něj kompletní strukturovaný článek. Nikdy nepiš odpověď v plain textu, vždy jen jako tool call.
@@ -235,7 +240,7 @@ async function callOpenAIImages(prompt, size) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: 'gpt-image-1',
+      model: OPENAI_IMAGE_MODEL,
       prompt,
       size,
       n: 1

@@ -3,7 +3,7 @@
 // Výstup: { success: true, image_url: string, storage_path: string }
 //
 // Pipeline:
-//   1) zavolá OpenAI Images API (model gpt-image-1)
+//   1) zavolá OpenAI Images API (model GPT Image 2.5)
 //   2) dostane PNG jako base64
 //   3) nahraje do Supabase Storage bucketu article-images
 //   4) vrátí publicUrl
@@ -21,6 +21,10 @@ const fetch = (() => {
   catch (e) { return globalThis.fetch; }
 })();
 
+// OpenAI vypnula gpt-image-1 23. 10. 2026. Flare je rychlá varianta GPT Image 2.5
+// (sunburst je detailnější, ale pomalejší). Env proměnná je tu kvůli příštímu
+// vypnutí – přepnutí modelu pak nepotřebuje deploy.
+const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2.5-flare';
 const DEFAULT_SIZE = '1536x1024';
 const BUCKET = 'article-images';
 const FOLDER = 'articles';
@@ -49,7 +53,7 @@ async function callOpenAIImages(prompt, size) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: 'gpt-image-1',
+      model: OPENAI_IMAGE_MODEL,
       prompt,
       size,
       n: 1
@@ -59,7 +63,7 @@ async function callOpenAIImages(prompt, size) {
   if (!response.ok) {
     throw new Error(`OpenAI Images ${response.status}: ${data.error?.message || JSON.stringify(data)}`);
   }
-  // gpt-image-1 vrací b64_json (na rozdíl od dalle-3 kde lze i URL)
+  // GPT Image vrací b64_json (na rozdíl od dalle-3, kde šla i URL)
   const b64 = data.data?.[0]?.b64_json;
   if (!b64) throw new Error('OpenAI nevrátil b64_json: ' + JSON.stringify(data).substring(0, 300));
   return Buffer.from(b64, 'base64');

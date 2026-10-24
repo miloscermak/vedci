@@ -23,7 +23,7 @@ Studie (URL/text)
    │                    ▼
    │            Anthropic API (Tool Use, science-journalism prompt)
    │                    │
-   │                    ├── OpenAI gpt-image-1 (1536×1024)
+   │                    ├── OpenAI GPT Image 2.5 (1536×1024)
    │                    │            │
    │                    │            ▼
    │                    │     Supabase Storage
@@ -76,7 +76,8 @@ Studie (URL/text)
 - `SUPABASE_SERVICE_ROLE` – service role klíč (NIKDY do client-side)
 - `RESEND_API_KEY` – existující, pro newsletter
 - `ANTHROPIC_MODEL` – volitelné, default `claude-fable-5` (text článků; pozor – tato env proměnná přebíjí default v kódu, takže pokud je nastavená, platí ona)
-- `ANTHROPIC_IMAGE_MODEL` – volitelné, default `claude-opus-5` (model, který píše anglické prompty pro `gpt-image-1` v `generate-article-image-background.js`; záměrně oddělené od `ANTHROPIC_MODEL`, ať přepnutí textového modelu nezmění zároveň i obrázkový)
+- `ANTHROPIC_IMAGE_MODEL` – volitelné, default `claude-opus-5` (model, který píše anglické prompty pro OpenAI Images v `generate-article-image-background.js`; záměrně oddělené od `ANTHROPIC_MODEL`, ať přepnutí textového modelu nezmění zároveň i obrázkový)
+- `OPENAI_IMAGE_MODEL` – volitelné, default `gpt-image-2.5-flare` (model na samotné generování obrázku v OpenAI Images; `gpt-image-2.5-sunburst` je detailnější, ale pomalejší)
 
 ---
 
@@ -85,7 +86,7 @@ Studie (URL/text)
 1. **Schema migrace** – přidány sloupce `status`, `image_prompt`, `study_source`, `published_at`, `generated_by` do `articles`. Backfill existujících 138 článků na `published`.
 2. **database.js refactor** – read metody filtrují published, draft API přidáno.
 3. **Admin Drafty sekce** – list draftů s badgi `AI` / `Cowork`, tlačítka Upravit / Publikovat / Smazat, formulář pro AI generování.
-4. **Background function pipeline** – Anthropic Tool Use → OpenAI gpt-image-1 inline → Supabase Storage → insert.
+4. **Background function pipeline** – Anthropic Tool Use → OpenAI Images inline → Supabase Storage → insert.
 5. **Bug fix slug** – `generateSlug` neuměl `ě` (článek o AI awareness skončil pod slugem `…-v-di` místo `…-vedi`). Opraveno přes Unicode normalizaci.
 6. **Production deploy branch fix** – Netlify měla production branch nastavenou na starý Claude Code branch `claude/admin-website-setup-…`, ne na `main`. Přepnuto na main.
 7. **První ostrý článek z pipeline publikovaný** – AI vs. lékaři v diagnostickém úsudku (https://vedcizjistili.cz/?clanek=umela-inteligence-prekonala-stovky-lekaru-v-diagnostickem-uv).
@@ -107,6 +108,13 @@ Studie (URL/text)
 4. **Admin přestavěn na taby** – Generovat z AI (výchozí) / Články / Newsletter / Glosy / O projektu. Drafty a publikované sloučeny do jednoho seznamu s filtrem, hledáním, stránkováním po 20 a náhledy obrázků.
 5. **Chybějící admin CSS vráceno.** `.admin-form`, `.form-group` a `.btn` byly jen ve `styles_backup.css` / `styles-old.css` – z živého `styles.css` vypadly při redesignu homepage a admin od té doby renderoval formuláře i tlačítka bez stylů. Teď jsou v `<style>` bloku `admin.html`, takže admin nezávisí na public CSS. **Pořadí v tom bloku je důležité:** základní `.btn` musí být před `.btn-sm` / `.btn-success` / `.btn-danger`, jinak je přebije.
 6. **Editační formulář žije v tabu Články.** `editArticle` proto volá `switchTab('articles')` – bez toho by se po generování z AI naplnil ve skrytém tabu.
+
+## Co bylo vyřešeno 24. října 2026
+
+1. **Obrázky se přestaly generovat.** OpenAI vypnula `gpt-image-1` **23. října 2026** (dall-e-2 a dall-e-3 už v květnu 2026). Volání `images/generations` od té doby padá, takže draft vznikl bez ilustrace.
+2. **Fix: přechod na `gpt-image-2.5-flare`** ve všech třech funkcích, které na OpenAI Images sahají (`generate-draft-background.js`, `generate-article-image-background.js`, `generate-image.js`). Velikost `1536x1024` i odpověď v `b64_json` zůstávají stejné, takže šlo jen o název modelu.
+3. **Nová env proměnná `OPENAI_IMAGE_MODEL`** – příští vypnutí už nebude potřebovat deploy, stačí přepnout v Netlify. Druhá možnost je `gpt-image-2.5-sunburst` (detailnější, pomalejší).
+4. **Pozor na další termín: 1. prosince 2026** končí `gpt-image-1.5` a `gpt-image-1-mini`. Modely řady 2.5 tím zasažené nejsou.
 
 ---
 
@@ -171,4 +179,4 @@ Pokud Miloš chce obrázek vyrobený, zatím to musí udělat externě (ChatGPT/
 
 ---
 
-*Aktualizováno: 26. srpna 2026 (sync s originem, modely na Opus 5, slug na hranici slova, přestavba adminu na taby)*
+*Aktualizováno: 24. října 2026 (obrázky na gpt-image-2.5-flare po vypnutí gpt-image-1)*

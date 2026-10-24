@@ -23,7 +23,7 @@ Studie (URL/text)
    │                    ▼
    │            Anthropic API (Tool Use, science-journalism prompt)
    │                    │
-   │                    ├── OpenAI gpt-image-1 (1536×1024)
+   │                    ├── OpenAI GPT Image 2.5 (1536×1024)
    │                    │            │
    │                    │            ▼
    │                    │     Supabase Storage
@@ -76,6 +76,7 @@ Studie (URL/text)
 - `SUPABASE_SERVICE_ROLE` – service role klíč (NIKDY do client-side)
 - `RESEND_API_KEY` – existující, pro newsletter
 - `ANTHROPIC_MODEL` – volitelné, default `Codex-fable-5` (text článků; pozor – tato env proměnná přebíjí default v kódu, takže pokud je nastavená, platí ona)
+- `OPENAI_IMAGE_MODEL` – volitelné, default `gpt-image-2.5-flare` (model na samotné generování obrázku v OpenAI Images; `gpt-image-2.5-sunburst` je detailnější, ale pomalejší)
 
 ---
 
@@ -84,7 +85,7 @@ Studie (URL/text)
 1. **Schema migrace** – přidány sloupce `status`, `image_prompt`, `study_source`, `published_at`, `generated_by` do `articles`. Backfill existujících 138 článků na `published`.
 2. **database.js refactor** – read metody filtrují published, draft API přidáno.
 3. **Admin Drafty sekce** – list draftů s badgi `AI` / `Cowork`, tlačítka Upravit / Publikovat / Smazat, formulář pro AI generování.
-4. **Background function pipeline** – Anthropic Tool Use → OpenAI gpt-image-1 inline → Supabase Storage → insert.
+4. **Background function pipeline** – Anthropic Tool Use → OpenAI Images inline → Supabase Storage → insert.
 5. **Bug fix slug** – `generateSlug` neuměl `ě` (článek o AI awareness skončil pod slugem `…-v-di` místo `…-vedi`). Opraveno přes Unicode normalizaci.
 6. **Production deploy branch fix** – Netlify měla production branch nastavenou na starý Codex branch `Codex/admin-website-setup-…`, ne na `main`. Přepnuto na main.
 7. **První ostrý článek z pipeline publikovaný** – AI vs. lékaři v diagnostickém úsudku (https://vedcizjistili.cz/?clanek=umela-inteligence-prekonala-stovky-lekaru-v-diagnostickem-uv).
@@ -95,6 +96,13 @@ Studie (URL/text)
 2. **Fix: gzip+base64 v adminu.** `admin.html` → `handleAiDraftSubmit` text > 100 KB v prohlížeči zabalí přes `CompressionStream('gzip')` + base64 a posílá jako pole `study_text_gzip_b64`. Funkce dekomprimuje přes vestavěný `zlib.gunzipSync` (žádná nová npm závislost). Reálný ratio 5–8×, takže do limitu se vejde studie až cca 1.2 MB raw. Když i po kompresi přesáhne 240 KB, admin to odmítne s konkrétní hláškou.
 3. **Lepší error handler v adminu.** Předtím `Function returned 500` byl jediná hláška, kterou jsi viděl, i když Netlify vracel HTML error stránku s konkrétní příčinou. Teď admin při ne-JSON 4xx/5xx ukáže prvních 400 znaků těla a zaloguje plnou odpověď do `console.error`. Příště nemusíš lézt do Netlify Functions logu jako první krok.
 4. **Commit `df68c1d`** – `Fix: dlouhý text studie přes gzip+b64 (Lambda async 256 KB limit)`.
+
+## Co bylo vyřešeno 24. října 2026
+
+1. **Obrázky se přestaly generovat.** OpenAI vypnula `gpt-image-1` **23. října 2026** (dall-e-2 a dall-e-3 už v květnu 2026). Volání `images/generations` od té doby padá, takže draft vznikl bez ilustrace.
+2. **Fix: přechod na `gpt-image-2.5-flare`** ve všech třech funkcích, které na OpenAI Images sahají (`generate-draft-background.js`, `generate-article-image-background.js`, `generate-image.js`). Velikost `1536x1024` i odpověď v `b64_json` zůstávají stejné, takže šlo jen o název modelu.
+3. **Nová env proměnná `OPENAI_IMAGE_MODEL`** – příští vypnutí už nebude potřebovat deploy, stačí přepnout v Netlify. Druhá možnost je `gpt-image-2.5-sunburst` (detailnější, pomalejší).
+4. **Pozor na další termín: 1. prosince 2026** končí `gpt-image-1.5` a `gpt-image-1-mini`. Modely řady 2.5 tím zasažené nejsou.
 
 ---
 
