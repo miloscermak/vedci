@@ -62,6 +62,7 @@ Studie (URL/text)
 | `database.js` | Wrapper třída `ArticleDatabase`. Public read metody filtrují `status='published'`. Draft API: `createDraft`, `publishDraft`, `unpublishArticle`, `getAllDrafts`. |
 | `homepage.js` | 3 přímé Supabase queries pro homepage – všechny mají `.eq('status', 'published')`. |
 | `admin.html` | Sekce **Rozpracované drafty** + formulář **Vygenerovat nový draft z AI**. Polling DB každých 5s, 3 min timeout. |
+| `admin-images.js` | Zmenšování obrázků v prohlížeči admina (`ImageOptimizer`): převod na WebP (max. šířka 1400 px) při ručním nahrání i po AI generování, tlačítka „Zmenšit obrázky" a „Smazat nepoužívané soubory" v záložce Články. Netlify funkce ukládají PNG z OpenAI a na WebP ho převede až admin; soubory mají roční cache, proto se nikdy nepřepisují pod stejným názvem. |
 | `netlify/functions/generate-draft-background.js` | Hlavní funkce. Anthropic Tool Use → strukturovaný JSON → inline OpenAI Images → Supabase Storage upload → insert draftu. |
 | `netlify/functions/generate-image.js` | Sync funkce, dnes nepoužívaná draft pipeline. Stojí za ponechání pro budoucí ad-hoc volání ze stránky editace draftu. |
 | `migrations/2026-05-01-draft-pipeline.sql` | Migrace přidávající `status`, `image_prompt`, `study_source`, `published_at`, `generated_by` + indexy + check constraint. |

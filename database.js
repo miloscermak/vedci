@@ -187,13 +187,17 @@ class ArticleDatabase {
                 return { success: false, error: 'Supabase klient není inicializován' };
             }
 
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+            // V adminu se obrázek před nahráním zmenší na WebP (admin-images.js)
+            const prepared = typeof ImageOptimizer !== 'undefined'
+                ? await ImageOptimizer.prepareUpload(file)
+                : { blob: file, extension: file.name.split('.').pop() };
+            const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${prepared.extension}`;
             const filePath = `articles/${fileName}`;
 
+            // Roční cache: název souboru je unikátní, takže se obsah nikdy nezmění
             const { data, error } = await this.supabase.storage
                 .from('article-images')
-                .upload(filePath, file);
+                .upload(filePath, prepared.blob, { cacheControl: '31536000', contentType: prepared.blob.type });
 
             if (error) {
                 console.error('Chyba při nahrávání obrázku:', error);

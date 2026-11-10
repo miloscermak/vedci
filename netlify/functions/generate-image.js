@@ -79,7 +79,7 @@ async function uploadToSupabaseStorage(buffer, fileName) {
     headers: {
       Authorization: `Bearer ${serviceKey}`,
       apikey: serviceKey,
-      'Content-Type': 'image/png',
+      'Content-Type': 'image/png', 'cache-control': 'max-age=31536000',
       'x-upsert': 'false'
     },
     body: buffer

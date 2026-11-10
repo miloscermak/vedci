@@ -117,7 +117,7 @@ async function uploadAndGetUrl(buffer) {
   const path = `${FOLDER}/${fileName}`;
   const res = await fetch(`${supabaseUrl}/storage/v1/object/${BUCKET}/${path}`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey, 'Content-Type': 'image/png', 'x-upsert': 'true' },
+    headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey, 'Content-Type': 'image/png', 'cache-control': 'max-age=31536000', 'x-upsert': 'true' },
     body: buffer
   });
   if (!res.ok) throw new Error(`Storage upload ${res.status}: ${await res.text()}`);

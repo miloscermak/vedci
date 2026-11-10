@@ -267,6 +267,16 @@
 
         .filter-group { display: flex; gap: 0.25rem; }
 
+        .image-tools {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem;
+            color: #666;
+        }
+
         .filter-btn {
             background: #f1f3f5;
             border: 1px solid transparent;
@@ -402,6 +412,7 @@
     </script>
     <script src="auth.js"></script>
     <script src="database.js"></script>
+    <script src="admin-images.js"></script>
     <script src="newsletter-generator.js"></script>
     <script src="resend-email.js"></script>
 </head>
@@ -512,6 +523,13 @@
                             <button type="button" class="filter-btn" data-filter="published">Publikované</button>
                         </div>
                         <input type="search" id="article-search" class="list-search" placeholder="Hledat v titulcích…" autocomplete="off">
+                    </div>
+
+                    <!-- Zmenšování obrázků kvůli limitům úložiště a přenosu dat -->
+                    <div class="image-tools">
+                        <button type="button" class="btn btn-secondary btn-sm" id="optimize-images" disabled>Zmenšit obrázky</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="cleanup-images">Smazat nepoužívané soubory</button>
+                        <span id="image-tools-status"></span>
                     </div>
 
                     <div id="list-loading" style="text-align: center; padding: 1.5rem; color: #666;">
@@ -1118,6 +1136,7 @@
             loadingEl.style.display = 'none';
             visibleCount = PAGE_SIZE;
             renderArticleList();
+            updateImageTools(allItems);
         }
 
         // Zpětně kompatibilní aliasy – volají se z publish/delete/unpublish handlerů.
@@ -1261,6 +1280,8 @@
                 }
 
                 if (found) {
+                    // Funkce uložila PNG – hned ho zmenšíme na WebP
+                    await ImageOptimizer.optimizeGenerated(id);
                     await loadArticleList();
                 } else {
                     if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
@@ -1411,6 +1432,7 @@
                     statusEl.style.color = '#27ae60';
                     document.getElementById('ai-draft-form').reset();
                     document.getElementById('ai-draft-generate-image').checked = true;
+                    await ImageOptimizer.optimizeGenerated(foundDraft.id);
                     await loadDrafts();
                     // Rovnou otevři vygenerovaný draft v editačním formuláři
                     editArticle(foundDraft.id);
